@@ -1,0 +1,24 @@
+/* styles.css — kept minimal; core styles are injected by content-script.js
+   as a <style> tag for higher reliability. This file is a fallback. */
+
+#movie_player.yt-cm-hide .ytp-chrome-bottom,
+#movie_player.yt-cm-hide .ytp-gradient-bottom,
+#movie_player.yt-cm-hide .ytp-chrome-top,
+#movie_player.yt-cm-hide .ytp-gradient-top {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+#movie_player.yt-cm-hide {
+    cursor: none !important;
+}
+#yt-cm-wfs-wrapper {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 2147483647 !important;
+    background: #000;
+}
+#yt-cm-wfs-wrapper #movie_player {
+    width: 100vw !important;
+    height: 100vh !important;
+}
