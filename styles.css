@@ -1,5 +1,4 @@
-/* styles.css — kept minimal; core styles are injected by content-script.js
-   as a <style> tag for higher reliability. This file is a fallback. */
+/* styles.css – fallback; core styles injected as a <style> tag by content-script.js */
 
 #movie_player.yt-cm-hide .ytp-chrome-bottom,
 #movie_player.yt-cm-hide .ytp-gradient-bottom,
@@ -8,17 +7,14 @@
     opacity: 0 !important;
     pointer-events: none !important;
 }
-#movie_player.yt-cm-hide {
-    cursor: none !important;
-}
-#yt-cm-wfs-wrapper {
+
+html.yt-cm-wfs #movie_player {
     position: fixed !important;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
+    top: 0 !important; left: 0 !important;
+    width: 100vw !important; height: 100vh !important;
     z-index: 2147483647 !important;
-    background: #000;
+    background: #000 !important;
 }
-#yt-cm-wfs-wrapper #movie_player {
-    width: 100vw !important;
-    height: 100vh !important;
+html.yt-cm-wfs body {
+    overflow: hidden !important;
 }

@@ -1,17 +1,12 @@
-// ─── YouTube Clean Mode ───────────────────────────────────────────────────────
-// Injected into every youtube.com page.
-// ─────────────────────────────────────────────────────────────────────────────
+// ── YouTube Clean Mode ────────────────────────────────────────────────────────
 
-// ── 0. Inject CSS directly via a <style> tag ─────────────────────────────────
-// This is more reliable than the manifest CSS file because it is inserted
-// INSIDE the page's document, giving it higher effective priority.
-
+// ── 0. Inject styles ──────────────────────────────────────────────────────────
 function injectStyles() {
     if (document.getElementById('yt-cm-styles')) return;
     const s = document.createElement('style');
     s.id = 'yt-cm-styles';
     s.textContent = `
-        /* ── Feature 1: hide bottom controls while hovering video ── */
+        /* Feature 1: hide control bar while hovering over video */
         #movie_player.yt-cm-hide .ytp-chrome-bottom,
         #movie_player.yt-cm-hide .ytp-gradient-bottom,
         #movie_player.yt-cm-hide .ytp-chrome-top,
@@ -20,177 +15,124 @@ function injectStyles() {
             pointer-events: none !important;
             transition: opacity 0.12s ease !important;
         }
-        #movie_player.yt-cm-hide {
-            cursor: none !important;
-        }
 
-        /* ── Feature 2: windowed-fullscreen wrapper ── */
-        #yt-cm-wfs-wrapper {
-            position: fixed !important;
-            top: 0 !important; left: 0 !important;
-            width: 100vw !important; height: 100vh !important;
-            z-index: 2147483647 !important;
-            background: #000 !important;
-            display: block !important;
-        }
-        #yt-cm-wfs-wrapper #movie_player {
-            width: 100vw !important;
+        /* Feature 2: Windowed Fullscreen — cascade 100vh down to the player */
+        html.yt-cm-wfs,
+        html.yt-cm-wfs body { overflow: hidden !important; height: 100vh !important; }
+
+        html.yt-cm-wfs #masthead-container { display: none !important; }
+
+        html.yt-cm-wfs ytd-app {
+            --ytd-masthead-height: 0px !important;
             height: 100vh !important;
-            position: relative !important;
-            max-width: unset !important;
-            max-height: unset !important;
         }
-        #yt-cm-wfs-wrapper video {
+        html.yt-cm-wfs ytd-page-manager {
+            margin-top: 0 !important;
+            top: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+        html.yt-cm-wfs ytd-watch-flexy {
+            height: 100vh !important;
+            overflow: hidden !important;
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+        }
+        html.yt-cm-wfs #columns {
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+        html.yt-cm-wfs #secondary,
+        html.yt-cm-wfs #secondary-inner { display: none !important; }
+
+        html.yt-cm-wfs #primary {
+            height: 100vh !important;
             width: 100% !important;
-            height: 100% !important;
-            object-fit: contain !important;
+            max-width: none !important;
+            min-width: 0 !important;
+            flex: 1 1 100% !important;
+            overflow: hidden !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
+        html.yt-cm-wfs #primary-inner {
+            height: 100vh !important;
+            overflow: hidden !important;
+            padding: 0 !important;
+        }
+        html.yt-cm-wfs ytd-player,
+        html.yt-cm-wfs #container.ytd-player,
+        html.yt-cm-wfs #movie_player {
+            width: 100% !important;
+            height: 100vh !important;
+            max-width: none !important;
+            max-height: none !important;
+        }
+        html.yt-cm-wfs #below,
+        html.yt-cm-wfs ytd-watch-metadata,
+        html.yt-cm-wfs ytd-comments,
+        html.yt-cm-wfs ytd-live-chat-frame { display: none !important; }
     `;
     (document.head || document.documentElement).appendChild(s);
 }
 
-// ── 1. Feature 1 – Hide controls on hover ────────────────────────────────────
-
-const CTRL_BAR_H = 60;          // px strip at bottom where controls live
+// ── 1. Feature 1: Hide control bar on hover ───────────────────────────────────
+const CTRL_BAR_H = 60;
 const CLS_HIDE   = 'yt-cm-hide';
 let playerEl     = null;
 
-function updateControlVisibility(clientX, clientY) {
+document.addEventListener('mousemove', (e) => {
     if (!playerEl) return;
     const r = playerEl.getBoundingClientRect();
+    const over = e.clientX >= r.left && e.clientX <= r.right
+              && e.clientY >= r.top  && e.clientY <= r.bottom;
+    if (!over) { playerEl.classList.remove(CLS_HIDE); return; }
+    playerEl.classList.toggle(CLS_HIDE, (r.bottom - e.clientY) > CTRL_BAR_H);
+}, { passive: true });
 
-    // Is the cursor actually over the player?
-    const overPlayer = clientX >= r.left && clientX <= r.right
-                    && clientY >= r.top  && clientY <= r.bottom;
-
-    if (!overPlayer) {
-        // Cursor left the player — always show controls
-        playerEl.classList.remove(CLS_HIDE);
-        return;
-    }
-
-    // Inside player: hide unless cursor is in the bottom control-bar strip
-    const inCtrlBar = (r.bottom - clientY) <= CTRL_BAR_H;
-    if (inCtrlBar) {
-        playerEl.classList.remove(CLS_HIDE);
-    } else {
-        playerEl.classList.add(CLS_HIDE);
-    }
-}
-
-// Listen at the DOCUMENT level so we also capture movement
-// inside YouTube's fullscreen (where the player IS the document).
-function onDocMouseMove(e) {
-    updateControlVisibility(e.clientX, e.clientY);
-}
-document.addEventListener('mousemove', onDocMouseMove, { passive: true });
-
-// ── 2. Feature 2 – Windowed Fullscreen ───────────────────────────────────────
-// We PHYSICALLY MOVE #movie_player into a fixed-position wrapper div that we
-// append to <html>. This bypasses any ancestor CSS transform/will-change that
-// would otherwise prevent position:fixed from covering the viewport.
-
-let isWFS            = false;
-let wfsWrapper       = null;
-let wfsOrigParent    = null;
-let wfsOrigNextSib   = null;
+// ── 2. Feature 2: Windowed Fullscreen ────────────────────────────────────────
+let isWFS = false;
 
 function enterWFS() {
-    const player = document.getElementById('movie_player');
-    if (!player || isWFS) return;
-
-    // Remember where the player lives in the DOM
-    wfsOrigParent  = player.parentElement;
-    wfsOrigNextSib = player.nextSibling;
-
-    // Build the overlay wrapper
-    wfsWrapper = document.createElement('div');
-    wfsWrapper.id = 'yt-cm-wfs-wrapper';
-    document.documentElement.appendChild(wfsWrapper);
-
-    // Move the player into it
-    wfsWrapper.appendChild(player);
-
+    if (isWFS) return;
+    document.documentElement.classList.add('yt-cm-wfs');
+    window.scrollTo(0, 0);
     isWFS = true;
     document.addEventListener('keydown', onWFSKey, true);
+    // Give the browser one layout frame, then fire resize so YouTube's
+    // player redraws the video into its new (full-viewport) dimensions.
+    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
-
 function exitWFS() {
-    if (!isWFS || !wfsWrapper) return;
-
-    const player = document.getElementById('movie_player');
-    if (player && wfsOrigParent) {
-        // Put the player back exactly where it was
-        if (wfsOrigNextSib && wfsOrigNextSib.isConnected
-                           && wfsOrigNextSib.parentElement === wfsOrigParent) {
-            wfsOrigParent.insertBefore(player, wfsOrigNextSib);
-        } else {
-            wfsOrigParent.appendChild(player);
-        }
-    }
-
-    wfsWrapper.remove();
-    wfsWrapper       = null;
-    wfsOrigParent    = null;
-    wfsOrigNextSib   = null;
-    isWFS            = false;
-
+    if (!isWFS) return;
+    document.documentElement.classList.remove('yt-cm-wfs');
+    isWFS = false;
     document.removeEventListener('keydown', onWFSKey, true);
 }
+function onWFSKey(e) { if (e.key === 'Escape') exitWFS(); }
+function toggleWFS() { isWFS ? exitWFS() : enterWFS(); }
 
-function onWFSKey(e) {
-    if (e.key === 'Escape') exitWFS();
-}
-
-function toggleWFS() {
-    if (isWFS) exitWFS(); else enterWFS();
-}
-
-// ── 3. Player element detection ───────────────────────────────────────────────
-
-let playerObserver = null;
-
+// ── 3. Player detection ───────────────────────────────────────────────────────
 function findPlayer() {
     const p = document.getElementById('movie_player');
-    if (p) {
-        playerEl = p;
-        if (playerObserver) { playerObserver.disconnect(); playerObserver = null; }
-        return;
-    }
-    // Not in DOM yet — watch for it
-    if (playerObserver) return;
-    playerObserver = new MutationObserver(() => {
+    if (p) { playerEl = p; return; }
+    const obs = new MutationObserver(() => {
         const p2 = document.getElementById('movie_player');
-        if (p2) {
-            playerEl = p2;
-            playerObserver.disconnect();
-            playerObserver = null;
-        }
+        if (p2) { playerEl = p2; obs.disconnect(); }
     });
-    playerObserver.observe(document.documentElement, { childList: true, subtree: true });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-function init() {
-    injectStyles();
-    findPlayer();
-}
+function init() { injectStyles(); findPlayer(); }
 
-// ── 4. SPA navigation wiring ─────────────────────────────────────────────────
-
-document.addEventListener('yt-navigate-finish',    init);
-document.addEventListener('yt-page-data-updated',  init);
-
-// ── 5. Extension button click ─────────────────────────────────────────────────
+document.addEventListener('yt-navigate-finish',   init);
+document.addEventListener('yt-page-data-updated', init);
 
 chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'toggleWindowedFS') toggleWFS();
 });
 
-// ── 6. Boot ───────────────────────────────────────────────────────────────────
-
 injectStyles();
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', init)
+    : init();
