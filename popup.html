@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            width: 300px;
+            background: #0f0f0f;
+            color: #fff;
+            font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+            user-select: none;
+        }
+
+        /* ── Header ── */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px 12px;
+            background: linear-gradient(135deg, #1a0000 0%, #1a1a1a 100%);
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .header img { width: 22px; height: 22px; }
+        .header-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+        .header-title span { color: #ff4444; }
+
+        /* ── Status badge ── */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            background: #1a1a1a;
+            border-bottom: 1px solid #222;
+            font-size: 10.5px;
+        }
+        .status-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #555;
+            flex-shrink: 0;
+        }
+        .status-dot.active { background: #22c55e; box-shadow: 0 0 4px #22c55e88; }
+        .status-text { color: #888; }
+        .status-text.active { color: #22c55e; }
+
+        /* ── Feature rows ── */
+        .features { padding: 4px 0; }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 13px 16px;
+            border-bottom: 1px solid #1e1e1e;
+            transition: background 0.15s;
+            cursor: default;
+        }
+        .feature:last-child { border-bottom: none; }
+        .feature:hover { background: #181818; }
+        .feature.disabled { opacity: 0.38; pointer-events: none; }
+
+        .feature-left { flex: 1; min-width: 0; }
+        .feature-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .feature-desc {
+            font-size: 11px;
+            color: #777;
+            line-height: 1.35;
+        }
+        .feature-badge {
+            display: inline-block;
+            margin-top: 4px;
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 10px;
+            color: #666;
+            font-family: monospace;
+        }
+
+        /* ── Toggle switch ── */
+        .toggle-wrap { flex-shrink: 0; }
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 38px;
+            height: 21px;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .knob {
+            position: absolute;
+            inset: 0;
+            background: #333;
+            border-radius: 21px;
+            cursor: pointer;
+            transition: background 0.22s;
+        }
+        .knob::before {
+            content: '';
+            position: absolute;
+            width: 15px; height: 15px;
+            left: 3px; top: 3px;
+            background: #888;
+            border-radius: 50%;
+            transition: transform 0.22s, background 0.22s;
+        }
+        input:checked + .knob { background: #3d0000; }
+        input:checked + .knob::before {
+            transform: translateX(17px);
+            background: #ff4444;
+            box-shadow: 0 0 6px #ff444466;
+        }
+
+        /* ── Controls Opacity row ── */
+        .feature-slider { cursor: default !important; }
+        .feature-slider:hover { background: #181818; }
+        .opacity-val {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 11px;
+            font-weight: 400;
+            color: #ff4444;
+            font-variant-numeric: tabular-nums;
+        }
+        .range-slider {
+            -webkit-appearance: none;
+            display: block;
+            width: 100%;
+            margin-top: 8px;
+            height: 3px;
+            background: #2a2a2a;
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 13px; height: 13px;
+            border-radius: 50%;
+            background: #ff4444;
+            box-shadow: 0 0 5px #ff444455;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .range-slider::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+        /* ── Footer ── */
+        .footer {
+            padding: 8px 16px;
+            background: #0a0a0a;
+            border-top: 1px solid #1e1e1e;
+            font-size: 10px;
+            color: #444;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <img src="icons/icon.svg" alt="">
+        <div class="header-title">YouTube <span>Clean Mode</span></div>
+    </div>
+
+    <!-- Status -->
+    <div class="status-bar">
+        <div class="status-dot" id="status-dot"></div>
+        <div class="status-text" id="status-text">Not on a YouTube video</div>
+    </div>
+
+    <!-- Features -->
+    <div class="features" id="features">
+
+        <div class="feature disabled" id="row-hide">
+            <div class="feature-left">
+                <div class="feature-name">Hide Controls on Hover</div>
+                <div class="feature-desc">Control bar stays hidden while cursor is over the video. Reappears at the bottom strip.</div>
+                <span class="feature-badge">H to toggle</span>
+            </div>
+            <div class="toggle-wrap">
+                <label class="toggle">
+                    <input type="checkbox" id="chk-hide" checked>
+                    <span class="knob"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="feature disabled" id="row-wfs">
+            <div class="feature-left">
+                <div class="feature-name">Windowed Fullscreen</div>
+                <div class="feature-desc">Video fills the entire browser window without native fullscreen.</div>
+                <span class="feature-badge">` to toggle · Esc to exit</span>
+            </div>
+            <div class="toggle-wrap">
+                <label class="toggle">
+                    <input type="checkbox" id="chk-wfs">
+                    <span class="knob"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="feature disabled" id="row-cinema">
+            <div class="feature-left">
+                <div class="feature-name">Cinema Mode</div>
+                <div class="feature-desc">Dims everything around the video player.</div>
+                <span class="feature-badge">Z to toggle</span>
+            </div>
+            <div class="toggle-wrap">
+                <label class="toggle">
+                    <input type="checkbox" id="chk-cinema">
+                    <span class="knob"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Controls opacity — standalone feature row -->
+        <div class="feature disabled" id="row-opacity">
+            <div class="feature-left">
+                <div class="feature-name">
+                    Controls Opacity
+                    <span class="opacity-val" id="opacity-display">100%</span>
+                </div>
+                <div class="feature-desc">Set how visible the player controls are at all times, independent of hover hiding.</div>
+                <span class="feature-badge">E decrease · R increase</span>
+                <input type="range" class="range-slider" id="slider-opacity"
+                       min="0" max="100" step="5" value="100">
+            </div>
+            <div class="toggle-wrap">
+                <label class="toggle">
+                    <input type="checkbox" id="chk-opacity" checked>
+                    <span class="knob"></span>
+                </label>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="footer">YouTube Clean Mode v1.0</div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

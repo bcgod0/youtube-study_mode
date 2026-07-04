@@ -1,9 +1,6 @@
 /* styles.css – fallback; core styles injected as a <style> tag by content-script.js */
 
-#movie_player.yt-cm-hide .ytp-chrome-bottom,
-#movie_player.yt-cm-hide .ytp-gradient-bottom,
-#movie_player.yt-cm-hide .ytp-chrome-top,
-#movie_player.yt-cm-hide .ytp-gradient-top {
+#movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container) {
     opacity: 0 !important;
     pointer-events: none !important;
 }

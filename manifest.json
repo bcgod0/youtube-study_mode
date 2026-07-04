@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "YouTube Clean Mode",
-    "description": "Hide YouTube controls on hover. Toggle windowed fullscreen with the extension button.",
+    "description": "Control bar hiding, windowed fullscreen, and cinema mode for YouTube.",
     "version": "1.0.0",
     "icons": {
         "16": "icons/icon.svg",
@@ -10,7 +10,8 @@
     },
     "action": {
         "default_icon": "icons/icon.svg",
-        "default_title": "Toggle Windowed Fullscreen"
+        "default_popup": "popup.html",
+        "default_title": "YouTube Clean Mode"
     },
     "background": {
         "service_worker": "background.js"
@@ -23,6 +24,6 @@
             "run_at": "document_idle"
         }
     ],
-    "permissions": ["activeTab"],
+    "permissions": ["activeTab", "storage"],
     "host_permissions": ["*://*.youtube.com/*"]
 }

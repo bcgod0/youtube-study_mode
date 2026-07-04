@@ -1,10 +1,2 @@
-// background.js — service worker
-// Forwards the extension-button click to the active tab's content script.
-
-chrome.action.onClicked.addListener((tab) => {
-    if (!tab.id) return;
-    chrome.tabs.sendMessage(tab.id, { action: 'toggleWindowedFS' })
-        .catch(() => {
-            // Content script not present on this tab (non-watch page or not yet injected) — ignore.
-        });
-});
+// background.js — no longer needed for button clicks (popup handles the UI).
+// Kept as an empty service worker so Chrome's MV3 requirement is satisfied.
