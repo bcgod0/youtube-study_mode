@@ -7,14 +7,15 @@ function injectStyles() {
     s.id = 'yt-cm-styles';
     s.textContent = `
         /* Controls Opacity — only when YouTube is actively showing controls.
-           Wildcard [class*="bezel"] covers all bezel variants so the toast is never dimmed. */
-        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]) {
+           Wildcard [class*="bezel"] covers all bezel variants so the toast is never dimmed.
+           #yt-cm-timestamp is excluded so the toggle fully controls its visibility. */
+        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp) {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
             transition: opacity 0.15s ease !important;
         }
 
-        /* Hide Controls on Hover — highest priority override. Bezel always excluded. */
-        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]) {
+        /* Hide Controls on Hover — highest priority override. Bezel and timestamp excluded. */
+        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp) {
             opacity: 0 !important;
             pointer-events: none !important;
         }
@@ -249,10 +250,31 @@ let isShowingRemaining  = false;   // false = current/total, true = remaining/to
 let timestampEl         = null;
 
 // ── Drag state ────────────────────────────────────────────────────────────────
-let _dragStartX = 0, _dragStartY = 0;
-let _dragOrigLeft = 0, _dragOrigTop = 0;
-let _dragging = false;
+let _dragStartX   = 0, _dragStartY   = 0;
+let _dragOrigLeft = 0, _dragOrigTop  = 0;
+let _dragging     = false;
 const DRAG_THRESHOLD = 4;  // px — below this = treated as a click
+
+// Position stored as fractions of player size (0.0–1.0) for resize-consistency
+let _tsPosX = 0.01;   // default: near left
+let _tsPosY = 0.03;   // default: near top
+
+function applyTsPosition() {
+    if (!timestampEl || !playerEl) return;
+    const pr  = playerEl.getBoundingClientRect();
+    const elW = timestampEl.offsetWidth  || 0;
+    const elH = timestampEl.offsetHeight || 0;
+    const left = Math.min(Math.max(0, _tsPosX * pr.width),  pr.width  - elW);
+    const top  = Math.min(Math.max(0, _tsPosY * pr.height), pr.height - elH);
+    timestampEl.style.left = left + 'px';
+    timestampEl.style.top  = top  + 'px';
+}
+
+function saveTsPosition() {
+    chrome.storage.local.set({ tsPosX: _tsPosX, tsPosY: _tsPosY });
+}
+
+function onTsResize() { applyTsPosition(); }
 
 function formatTime(secs) {
     if (!isFinite(secs) || secs < 0) return '--:--';
@@ -313,16 +335,21 @@ function onTsDragMove(e) {
 
     timestampEl.style.left = newLeft + 'px';
     timestampEl.style.top  = newTop  + 'px';
+
+    // Keep fractions in sync during drag so resize listener is always accurate
+    _tsPosX = newLeft / pr.width;
+    _tsPosY = newTop  / pr.height;
 }
 
 function onTsDragEnd(e) {
     document.removeEventListener('mousemove', onTsDragMove);
     document.removeEventListener('mouseup',   onTsDragEnd);
-    timestampEl?.classList.remove('yt-cm-dragging');
     if (!_dragging) {
-        // Short movement = click → toggle mode
+        // Short movement = click → toggle display mode
         isShowingRemaining = !isShowingRemaining;
         onTimeUpdate();
+    } else {
+        saveTsPosition();   // persist final resting position
     }
     _dragging = false;
 }
@@ -343,9 +370,11 @@ function showTimestamp() {
     const el = ensureTimestampEl();
     if (!el) return;
     el.classList.add('yt-cm-ts-visible');
-    onTimeUpdate();                                    // immediate paint
+    // Apply position after element is visible so offsetWidth is accurate
+    requestAnimationFrame(() => { applyTsPosition(); onTimeUpdate(); });
     getVideo()?.addEventListener('timeupdate', onTimeUpdate);
     el.addEventListener('mousedown', onTsDragStart);
+    window.addEventListener('resize', onTsResize, { passive: true });
 }
 
 function hideTimestamp() {
@@ -353,6 +382,7 @@ function hideTimestamp() {
     timestampEl?.removeEventListener('mousedown', onTsDragStart);
     document.removeEventListener('mousemove', onTsDragMove);
     document.removeEventListener('mouseup',   onTsDragEnd);
+    window.removeEventListener('resize', onTsResize);
     getVideo()?.removeEventListener('timeupdate', onTimeUpdate);
 }
 
@@ -448,14 +478,19 @@ document.addEventListener('yt-page-data-updated', init);
 
 // ── 6. Boot: load persisted preferences then initialise ──────────────────────
 injectStyles();
-chrome.storage.local.get({ hideControls: true, controlOpacity: 1, isOpacityEnabled: true }, (result) => {
-    isHideControlsEnabled = result.hideControls;
-    controlOpacity        = result.controlOpacity;
-    isOpacityEnabled      = result.isOpacityEnabled;
-    applyOpacity();
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+chrome.storage.local.get(
+    { hideControls: true, controlOpacity: 1, isOpacityEnabled: true, tsPosX: 0.01, tsPosY: 0.03 },
+    (result) => {
+        isHideControlsEnabled = result.hideControls;
+        controlOpacity        = result.controlOpacity;
+        isOpacityEnabled      = result.isOpacityEnabled;
+        _tsPosX               = result.tsPosX;
+        _tsPosY               = result.tsPosY;
+        applyOpacity();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     }
-});
+);
