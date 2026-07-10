@@ -392,10 +392,11 @@ document.addEventListener('keydown', (e) => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.action === 'getState') {
         sendResponse({
-            hideControls:   isHideControlsEnabled,
-            wfs:            isWFS,
-            cinema:         isCinema,
-            opacityEnabled: isOpacityEnabled,
+            hideControls:       isHideControlsEnabled,
+            wfs:                isWFS,
+            cinema:             isCinema,
+            isTimestampVisible: isTimestampVisible,
+            opacityEnabled:     isOpacityEnabled,
             controlOpacity,
         });
     }

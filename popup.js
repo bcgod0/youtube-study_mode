@@ -2,17 +2,19 @@
 
 const dot      = document.getElementById('status-dot');
 const statusTx = document.getElementById('status-text');
-const rows     = {
-    hide:    document.getElementById('row-hide'),
-    wfs:     document.getElementById('row-wfs'),
-    cinema:  document.getElementById('row-cinema'),
-    opacity: document.getElementById('row-opacity'),
+const rows = {
+    hide:      document.getElementById('row-hide'),
+    wfs:       document.getElementById('row-wfs'),
+    cinema:    document.getElementById('row-cinema'),
+    timestamp: document.getElementById('row-timestamp'),
+    opacity:   document.getElementById('row-opacity'),
 };
 const chks = {
-    hide:    document.getElementById('chk-hide'),
-    wfs:     document.getElementById('chk-wfs'),
-    cinema:  document.getElementById('chk-cinema'),
-    opacity: document.getElementById('chk-opacity'),
+    hide:      document.getElementById('chk-hide'),
+    wfs:       document.getElementById('chk-wfs'),
+    cinema:    document.getElementById('chk-cinema'),
+    timestamp: document.getElementById('chk-timestamp'),
+    opacity:   document.getElementById('chk-opacity'),
 };
 const slider         = document.getElementById('slider-opacity');
 const opacityDisplay = document.getElementById('opacity-display');
@@ -47,10 +49,11 @@ async function init() {
     Object.values(rows).forEach(r => r.classList.remove('disabled'));
 
     // Set toggle states
-    chks.hide.checked    = state.hideControls;
-    chks.wfs.checked     = state.wfs;
-    chks.cinema.checked  = state.cinema;
-    chks.opacity.checked = state.opacityEnabled ?? true;
+    chks.hide.checked      = state.hideControls;
+    chks.wfs.checked       = state.wfs;
+    chks.cinema.checked    = state.cinema;
+    chks.timestamp.checked = state.isTimestampVisible ?? false;
+    chks.opacity.checked   = state.opacityEnabled ?? true;
 
     // Set slider from live state
     const pct = Math.round((state.controlOpacity ?? 1) * 100);
@@ -73,6 +76,10 @@ async function init() {
     chks.opacity.addEventListener('change', async () => {
         const t = await getTab();
         chrome.tabs.sendMessage(t.id, { action: 'toggleOpacity' }).catch(() => {});
+    });
+    chks.timestamp.addEventListener('change', async () => {
+        const t = await getTab();
+        chrome.tabs.sendMessage(t.id, { action: 'toggleTimestamp' }).catch(() => {});
     });
 
     // ── Wire opacity slider ──
