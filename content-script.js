@@ -6,18 +6,23 @@ function injectStyles() {
     const s = document.createElement('style');
     s.id = 'yt-cm-styles';
     s.textContent = `
-        /* Controls Opacity — applied only when YouTube is actively showing controls.
-           When the cursor leaves the player, YouTube adds .ytp-autohide to #movie_player
-           and our rule steps aside so YouTube's own hide logic works normally. */
-        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container) {
+        /* Controls Opacity — only when YouTube is actively showing controls.
+           Wildcard [class*="bezel"] covers all bezel variants so the toast is never dimmed. */
+        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]) {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
             transition: opacity 0.15s ease !important;
         }
 
-        /* Hide Controls on Hover — highest priority override (cursor over video, not in strip) */
-        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container) {
+        /* Hide Controls on Hover — highest priority override. Bezel always excluded. */
+        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]) {
             opacity: 0 !important;
             pointer-events: none !important;
+        }
+
+        /* Explicit override: always force any bezel element to full opacity
+           so the pause/resume/seek toast is visible at every opacity level. */
+        #movie_player [class*="bezel"] {
+            opacity: 1 !important;
         }
 
         /* Feature 2: Windowed Fullscreen — cascade 100vh down to the player */
@@ -90,6 +95,30 @@ function injectStyles() {
             pointer-events: none !important;
             transition: opacity 0.35s ease !important;
         }
+
+        /* Feature 4: Timestamp Overlay */
+        #yt-cm-timestamp {
+            position: absolute !important;
+            top: 10px !important;
+            left: 4px !important;
+            z-index: 3000 !important;
+            background: rgba(0, 0, 0, 0.72) !important;
+            color: #fff !important;
+            font-family: 'Roboto', 'YouTube Noto', Arial, sans-serif !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.04em !important;
+            padding: 3px 8px !important;
+            border-radius: 4px !important;
+            pointer-events: none !important;
+            user-select: none !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s ease !important;
+            white-space: nowrap !important;
+        }
+        #yt-cm-timestamp.yt-cm-ts-visible {
+            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
+        }
     `;
     (document.head || document.documentElement).appendChild(s);
 }
@@ -134,6 +163,12 @@ function exitWFS() {
     document.documentElement.classList.remove('yt-cm-wfs');
     isWFS = false;
     document.removeEventListener('keydown', onWFSKey, true);
+    window.scrollTo(0, 0);
+    // Let the CSS revert in one frame, then tell YouTube's player to re-measure
+    requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
+    });
 }
 function onWFSKey(e) { if (e.key === 'Escape') exitWFS(); }
 function toggleWFS() { isWFS ? exitWFS() : enterWFS(); }
@@ -208,6 +243,64 @@ function applyOpacity() {
     document.documentElement.style.setProperty('--yt-cm-ctrl-opacity', v);
 }
 
+// ── Feature 4: Timestamp Overlay ─────────────────────────────────────────────
+let isTimestampVisible = false;
+let timestampEl        = null;
+let timestampTimer     = null;
+
+function formatTime(seconds) {
+    if (isNaN(seconds) || seconds < 0) return '--:--';
+    const s = Math.floor(seconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) {
+        return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    }
+    return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function getTimestampEl() {
+    if (timestampEl && document.contains(timestampEl)) return timestampEl;
+    timestampEl = document.getElementById('yt-cm-timestamp');
+    if (!timestampEl && playerEl) {
+        timestampEl = document.createElement('div');
+        timestampEl.id = 'yt-cm-timestamp';
+        playerEl.appendChild(timestampEl);
+    }
+    return timestampEl;
+}
+
+function updateTimestamp() {
+    const el = getTimestampEl();
+    if (!el) return;
+    const video = document.querySelector('#movie_player video');
+    if (video) {
+        el.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+    } else {
+        el.textContent = '--:-- / --:--';
+    }
+}
+
+function showTimestamp() {
+    const el = getTimestampEl();
+    if (!el) return;
+    el.classList.add('yt-cm-ts-visible');
+    updateTimestamp();
+    if (timestampTimer) clearInterval(timestampTimer);
+    timestampTimer = setInterval(updateTimestamp, 1000);
+}
+
+function hideTimestamp() {
+    if (timestampEl) timestampEl.classList.remove('yt-cm-ts-visible');
+    if (timestampTimer) { clearInterval(timestampTimer); timestampTimer = null; }
+}
+
+function toggleTimestamp() {
+    isTimestampVisible = !isTimestampVisible;
+    isTimestampVisible ? showTimestamp() : hideTimestamp();
+}
+
 // Keyboard shortcuts (ignored when typing in an input)
 document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, [contenteditable]')) return;
@@ -217,6 +310,7 @@ document.addEventListener('keydown', (e) => {
         if (e.code === 'Backquote') toggleWFS();          // `  → Windowed Fullscreen
         if (e.code === 'KeyZ')      toggleCinema();        // Z  → Cinema Mode
         if (e.code === 'KeyH')      toggleHideControls();  // H  → Hide Controls
+        if (e.code === 'KeyY')      toggleTimestamp();     // Y  → Timestamp Overlay
         if (e.code === 'KeyE') {                           // E  → opacity −5%
             controlOpacity = parseFloat(Math.max(0, controlOpacity - 0.05).toFixed(2));
             applyOpacity();
@@ -248,6 +342,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     else if (msg.action === 'toggleHideControls') { toggleHideControls(); }
     else if (msg.action === 'toggleWindowedFS')   { toggleWFS(); }
     else if (msg.action === 'toggleCinema')        { toggleCinema(); }
+    else if (msg.action === 'toggleTimestamp')     { toggleTimestamp(); }
     else if (msg.action === 'toggleOpacity') {
         isOpacityEnabled = !isOpacityEnabled;
         applyOpacity();
@@ -267,6 +362,9 @@ function findPlayer() {
     if (p) {
         playerEl = p;
         if (isCinema) playerEl.classList.add('yt-cm-cinema');
+        // Re-attach timestamp overlay to new player element if it was visible
+        timestampEl = null;
+        if (isTimestampVisible) showTimestamp();
         return;
     }
     const obs = new MutationObserver(() => {
@@ -274,6 +372,8 @@ function findPlayer() {
         if (p2) {
             playerEl = p2;
             if (isCinema) playerEl.classList.add('yt-cm-cinema');
+            timestampEl = null;
+            if (isTimestampVisible) showTimestamp();
             obs.disconnect();
         }
     });
