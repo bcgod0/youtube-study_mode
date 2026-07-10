@@ -99,8 +99,8 @@ function injectStyles() {
         /* Feature 4: Timestamp Overlay */
         #yt-cm-timestamp {
             position: absolute !important;
-            top: 10px !important;
-            left: 4px !important;
+            top: 10px;
+            left: 4px;
             z-index: 3000 !important;
             background: rgba(0, 0, 0, 0.72) !important;
             color: #fff !important;
@@ -110,7 +110,7 @@ function injectStyles() {
             letter-spacing: 0.04em !important;
             padding: 3px 8px !important;
             border-radius: 4px !important;
-            pointer-events: none !important;
+            cursor: default !important;
             user-select: none !important;
             opacity: 0 !important;
             transition: opacity 0.2s ease !important;
@@ -244,56 +244,116 @@ function applyOpacity() {
 }
 
 // ── Feature 4: Timestamp Overlay ─────────────────────────────────────────────
-let isTimestampVisible = false;
-let timestampEl        = null;
-let timestampTimer     = null;
+let isTimestampVisible  = false;
+let isShowingRemaining  = false;   // false = current/total, true = remaining/total
+let timestampEl         = null;
 
-function formatTime(seconds) {
-    if (isNaN(seconds) || seconds < 0) return '--:--';
-    const s = Math.floor(seconds);
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    if (h > 0) {
-        return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-    }
-    return `${m}:${String(sec).padStart(2,'0')}`;
+// ── Drag state ────────────────────────────────────────────────────────────────
+let _dragStartX = 0, _dragStartY = 0;
+let _dragOrigLeft = 0, _dragOrigTop = 0;
+let _dragging = false;
+const DRAG_THRESHOLD = 4;  // px — below this = treated as a click
+
+function formatTime(secs) {
+    if (!isFinite(secs) || secs < 0) return '--:--';
+    secs = Math.floor(secs);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return h > 0
+        ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+        : `${m}:${String(s).padStart(2,'0')}`;
 }
 
-function getTimestampEl() {
-    if (timestampEl && document.contains(timestampEl)) return timestampEl;
-    timestampEl = document.getElementById('yt-cm-timestamp');
-    if (!timestampEl && playerEl) {
-        timestampEl = document.createElement('div');
-        timestampEl.id = 'yt-cm-timestamp';
-        playerEl.appendChild(timestampEl);
+function getVideo() {
+    return document.querySelector('#movie_player video');
+}
+
+function ensureTimestampEl() {
+    if (!timestampEl || !document.contains(timestampEl)) {
+        timestampEl = document.getElementById('yt-cm-timestamp');
+        if (!timestampEl && playerEl) {
+            timestampEl = document.createElement('div');
+            timestampEl.id = 'yt-cm-timestamp';
+            playerEl.appendChild(timestampEl);
+        }
     }
     return timestampEl;
 }
 
-function updateTimestamp() {
-    const el = getTimestampEl();
+function onTimeUpdate() {
+    const el = ensureTimestampEl();
     if (!el) return;
-    const video = document.querySelector('#movie_player video');
-    if (video) {
-        el.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
+    const v = getVideo();
+    if (!v) { el.textContent = '--:-- / --:--'; return; }
+    if (isShowingRemaining) {
+        const remaining = v.duration - v.currentTime;
+        el.textContent = isFinite(remaining)
+            ? `-${formatTime(remaining)} / ${formatTime(v.duration)}`
+            : '--:-- / --:--';
     } else {
-        el.textContent = '--:-- / --:--';
+        el.textContent = `${formatTime(v.currentTime)} / ${formatTime(v.duration)}`;
     }
 }
 
+// ── Drag handlers ─────────────────────────────────────────────────────────────
+function onTsDragMove(e) {
+    const dx = e.clientX - _dragStartX;
+    const dy = e.clientY - _dragStartY;
+    if (!_dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    _dragging = true;
+    timestampEl.classList.add('yt-cm-dragging');
+
+    const pr = playerEl.getBoundingClientRect();
+    const elW = timestampEl.offsetWidth;
+    const elH = timestampEl.offsetHeight;
+
+    const newLeft = Math.min(Math.max(0, _dragOrigLeft + dx), pr.width  - elW);
+    const newTop  = Math.min(Math.max(0, _dragOrigTop  + dy), pr.height - elH);
+
+    timestampEl.style.left = newLeft + 'px';
+    timestampEl.style.top  = newTop  + 'px';
+}
+
+function onTsDragEnd(e) {
+    document.removeEventListener('mousemove', onTsDragMove);
+    document.removeEventListener('mouseup',   onTsDragEnd);
+    timestampEl?.classList.remove('yt-cm-dragging');
+    if (!_dragging) {
+        // Short movement = click → toggle mode
+        isShowingRemaining = !isShowingRemaining;
+        onTimeUpdate();
+    }
+    _dragging = false;
+}
+
+function onTsDragStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    _dragStartX  = e.clientX;
+    _dragStartY  = e.clientY;
+    _dragOrigLeft = parseInt(timestampEl.style.left) || timestampEl.offsetLeft;
+    _dragOrigTop  = parseInt(timestampEl.style.top)  || timestampEl.offsetTop;
+    _dragging    = false;
+    document.addEventListener('mousemove', onTsDragMove);
+    document.addEventListener('mouseup',   onTsDragEnd);
+}
+
 function showTimestamp() {
-    const el = getTimestampEl();
+    const el = ensureTimestampEl();
     if (!el) return;
     el.classList.add('yt-cm-ts-visible');
-    updateTimestamp();
-    if (timestampTimer) clearInterval(timestampTimer);
-    timestampTimer = setInterval(updateTimestamp, 1000);
+    onTimeUpdate();                                    // immediate paint
+    getVideo()?.addEventListener('timeupdate', onTimeUpdate);
+    el.addEventListener('mousedown', onTsDragStart);
 }
 
 function hideTimestamp() {
-    if (timestampEl) timestampEl.classList.remove('yt-cm-ts-visible');
-    if (timestampTimer) { clearInterval(timestampTimer); timestampTimer = null; }
+    timestampEl?.classList.remove('yt-cm-ts-visible');
+    timestampEl?.removeEventListener('mousedown', onTsDragStart);
+    document.removeEventListener('mousemove', onTsDragMove);
+    document.removeEventListener('mouseup',   onTsDragEnd);
+    getVideo()?.removeEventListener('timeupdate', onTimeUpdate);
 }
 
 function toggleTimestamp() {
