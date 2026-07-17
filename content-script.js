@@ -9,13 +9,13 @@ function injectStyles() {
         /* Controls Opacity — only when YouTube is actively showing controls.
            Wildcard [class*="bezel"] covers all bezel variants so the toast is never dimmed.
            #yt-cm-timestamp is excluded so the toggle fully controls its visibility. */
-        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp) {
+        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track) {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
             transition: opacity 0.15s ease !important;
         }
 
         /* Hide Controls on Hover — highest priority override. Bezel and timestamp excluded. */
-        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp) {
+        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track) {
             opacity: 0 !important;
             pointer-events: none !important;
         }
@@ -95,6 +95,36 @@ function injectStyles() {
             z-index: 2050 !important;
             pointer-events: none !important;
             transition: opacity 0.35s ease !important;
+        }
+
+        /* Feature 5: Progress Bar */
+        #yt-cm-progress-bar-track {
+            position: absolute !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 3px !important;
+            background: rgba(255, 255, 255, 0.15) !important;
+            z-index: 3100 !important;
+            pointer-events: none !important;
+            opacity: 0 !important;
+            transition: opacity 0.25s ease !important;
+        }
+        #yt-cm-progress-bar-track.yt-cm-pb-visible {
+            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
+        }
+        /* Hide our bar while native controls are visible (cursor over player) */
+        #movie_player:not(.ytp-autohide) #yt-cm-progress-bar-track.yt-cm-pb-visible {
+            opacity: 0 !important;
+            transition: opacity 0.15s ease !important;
+        }
+        #yt-cm-progress-bar-fill {
+            height: 100% !important;
+            width: 0%;  /* no !important — JS inline setProperty('important') must win */
+            background: #f92109ff !important;
+            box-shadow: 0 0 3px 0px rgba(192, 57, 43, 0.35) !important;
+            transition: width 0.25s linear !important;
+            border-radius: 0 2px 2px 0 !important;
         }
 
         /* Feature 4: Timestamp Overlay */
@@ -242,6 +272,62 @@ let isOpacityEnabled = true; // toggle: off = force 1.0 (fully visible)
 function applyOpacity() {
     const v = isOpacityEnabled ? controlOpacity : 1;
     document.documentElement.style.setProperty('--yt-cm-ctrl-opacity', v);
+}
+
+// ── Feature 5: Progress Bar ──────────────────────────────────────────────────
+let isProgressBarVisible = false;
+let progressTrackEl      = null;
+let progressFillEl       = null;
+let _progressRafId       = null;  // rAF handle
+
+function ensureProgressBarEl() {
+    if (!progressTrackEl || !document.contains(progressTrackEl)) {
+        progressTrackEl = document.getElementById('yt-cm-progress-bar-track');
+        progressFillEl  = progressTrackEl
+            ? progressTrackEl.querySelector('div')
+            : null;
+        if (!progressTrackEl && playerEl) {
+            progressTrackEl = document.createElement('div');
+            progressTrackEl.id = 'yt-cm-progress-bar-track';
+            progressFillEl = document.createElement('div');
+            progressFillEl.id = 'yt-cm-progress-bar-fill';
+            progressTrackEl.appendChild(progressFillEl);
+            playerEl.appendChild(progressTrackEl);
+        }
+    }
+    return progressTrackEl;
+}
+
+function _progressRafLoop() {
+    if (!isProgressBarVisible) return;   // stop if toggled off
+    if (progressFillEl) {
+        const v = getVideo();
+        if (v && isFinite(v.duration) && v.duration > 0) {
+            const pct = (v.currentTime / v.duration) * 100;
+            progressFillEl.style.setProperty('width', pct.toFixed(3) + '%', 'important');
+        }
+    }
+    _progressRafId = requestAnimationFrame(_progressRafLoop);
+}
+
+function showProgressBar() {
+    const el = ensureProgressBarEl();
+    if (!el) return;
+    el.classList.add('yt-cm-pb-visible');
+    if (_progressRafId) cancelAnimationFrame(_progressRafId);
+    _progressRafLoop();
+}
+
+function hideProgressBar() {
+    progressTrackEl?.classList.remove('yt-cm-pb-visible');
+    if (_progressRafId) { cancelAnimationFrame(_progressRafId); _progressRafId = null; }
+    if (progressFillEl) progressFillEl.style.width = '0%';
+}
+
+function toggleProgressBar() {
+    isProgressBarVisible = !isProgressBarVisible;
+    isProgressBarVisible ? showProgressBar() : hideProgressBar();
+    chrome.storage.local.set({ progressBar: isProgressBarVisible });
 }
 
 // ── Feature 4: Timestamp Overlay ─────────────────────────────────────────────
@@ -401,6 +487,7 @@ document.addEventListener('keydown', (e) => {
         if (e.code === 'KeyZ')      toggleCinema();        // Z  → Cinema Mode
         if (e.code === 'KeyH')      toggleHideControls();  // H  → Hide Controls
         if (e.code === 'KeyY')      toggleTimestamp();     // Y  → Timestamp Overlay
+        if (e.code === 'KeyP')      toggleProgressBar();   // P  → Progress Bar
         if (e.code === 'KeyE') {                           // E  → opacity −5%
             controlOpacity = parseFloat(Math.max(0, controlOpacity - 0.05).toFixed(2));
             applyOpacity();
@@ -422,18 +509,20 @@ document.addEventListener('keydown', (e) => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.action === 'getState') {
         sendResponse({
-            hideControls:       isHideControlsEnabled,
-            wfs:                isWFS,
-            cinema:             isCinema,
-            isTimestampVisible: isTimestampVisible,
-            opacityEnabled:     isOpacityEnabled,
+            hideControls:        isHideControlsEnabled,
+            wfs:                 isWFS,
+            cinema:              isCinema,
+            isTimestampVisible:  isTimestampVisible,
+            opacityEnabled:      isOpacityEnabled,
             controlOpacity,
+            progressBar:         isProgressBarVisible,
         });
     }
     else if (msg.action === 'toggleHideControls') { toggleHideControls(); }
     else if (msg.action === 'toggleWindowedFS')   { toggleWFS(); }
     else if (msg.action === 'toggleCinema')        { toggleCinema(); }
     else if (msg.action === 'toggleTimestamp')     { toggleTimestamp(); }
+    else if (msg.action === 'toggleProgressBar')   { toggleProgressBar(); }
     else if (msg.action === 'toggleOpacity') {
         isOpacityEnabled = !isOpacityEnabled;
         applyOpacity();
@@ -453,9 +542,12 @@ function findPlayer() {
     if (p) {
         playerEl = p;
         if (isCinema) playerEl.classList.add('yt-cm-cinema');
-        // Re-attach timestamp overlay to new player element if it was visible
-        timestampEl = null;
-        if (isTimestampVisible) showTimestamp();
+        // Re-attach overlays to new player element if they were visible
+        timestampEl     = null;
+        progressTrackEl = null;
+        progressFillEl  = null;
+        if (isTimestampVisible)   showTimestamp();
+        if (isProgressBarVisible) showProgressBar();
         return;
     }
     const obs = new MutationObserver(() => {
@@ -463,8 +555,11 @@ function findPlayer() {
         if (p2) {
             playerEl = p2;
             if (isCinema) playerEl.classList.add('yt-cm-cinema');
-            timestampEl = null;
-            if (isTimestampVisible) showTimestamp();
+            timestampEl     = null;
+            progressTrackEl = null;
+            progressFillEl  = null;
+            if (isTimestampVisible)   showTimestamp();
+            if (isProgressBarVisible) showProgressBar();
             obs.disconnect();
         }
     });
@@ -479,13 +574,14 @@ document.addEventListener('yt-page-data-updated', init);
 // ── 6. Boot: load persisted preferences then initialise ──────────────────────
 injectStyles();
 chrome.storage.local.get(
-    { hideControls: true, controlOpacity: 1, isOpacityEnabled: true, tsPosX: 0.01, tsPosY: 0.03 },
+    { hideControls: true, controlOpacity: 1, isOpacityEnabled: true, tsPosX: 0.01, tsPosY: 0.03, progressBar: false },
     (result) => {
         isHideControlsEnabled = result.hideControls;
         controlOpacity        = result.controlOpacity;
         isOpacityEnabled      = result.isOpacityEnabled;
         _tsPosX               = result.tsPosX;
         _tsPosY               = result.tsPosY;
+        isProgressBarVisible  = result.progressBar;
         applyOpacity();
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
