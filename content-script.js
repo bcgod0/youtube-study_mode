@@ -103,7 +103,7 @@ function injectStyles() {
             bottom: 0 !important;
             left: 0 !important;
             width: 100% !important;
-            height: 4.2px !important;
+            height: 3px !important;
             background: rgba(255, 255, 255, 0.15) !important;
             z-index: 3100 !important;
             pointer-events: none !important;
@@ -111,16 +111,8 @@ function injectStyles() {
             overflow: visible !important;
             transition: opacity 0.25s ease !important;
         }
-        /* WFS: player = full browser window */
-        html.yt-cm-wfs #yt-cm-progress-bar-track {
-            height: 5.8px !important;
-        }
-        /* True fullscreen */
-        #movie_player.ytp-fullscreen #yt-cm-progress-bar-track {
-            height: 6px !important;
-        }
         #yt-cm-progress-bar-track.yt-cm-pb-visible {
-            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
+            opacity: min(1, calc(var(--yt-cm-ctrl-opacity, 1) + 0.4)) !important;
         }
         /* Hide our bar while native controls are visible (cursor over player) */
         #movie_player:not(.ytp-autohide) #yt-cm-progress-bar-track.yt-cm-pb-visible {
@@ -132,24 +124,13 @@ function injectStyles() {
             height: 100% !important;
             width: 0%;  /* no !important — JS inline setProperty('important') must win */
             /* comet tail: dim on the left, full colour at the tip */
-            background: linear-gradient(to right, rgba(192, 57, 43, 0.25), #c0392b 85%) !important;
+            background: linear-gradient(to right, rgba(192, 57, 43, 0.05), #c0392b 100%) !important;
             overflow: visible !important;
             transition: width 0.25s linear !important;
             border-radius: 0 !important;
+            box-shadow: 0 0 4px 0px rgba(255, 80, 60, 0.95) !important;
         }
-        /* Leading-edge glow — just a radial bloom, no shape */
-        #yt-cm-progress-bar-fill::after {
-            content: '' !important;
-            position: absolute !important;
-            right: -3px !important;
-            top: 50% !important;
-            width: 6px !important;
-            height: 6px !important;
-            border-radius: 50% !important;
-            background: #ff6b55 !important;
-            transform: translateY(-50%) !important;
-            box-shadow: 0 0 10px 3px rgba(255, 100, 60, 1.0), 0 0 18px 4px rgba(255, 70, 40, 0.7) !important;
-        }
+
 
         /* Feature 4: Timestamp Overlay */
         #yt-cm-timestamp {
