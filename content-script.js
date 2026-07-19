@@ -9,13 +9,13 @@ function injectStyles() {
         /* Controls Opacity — only when YouTube is actively showing controls.
            Wildcard [class*="bezel"] covers all bezel variants so the toast is never dimmed.
            #yt-cm-timestamp is excluded so the toggle fully controls its visibility. */
-        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track) {
+        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track):not(#yt-cm-wfs-btn) {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
             transition: opacity 0.15s ease !important;
         }
 
         /* Hide Controls on Hover — highest priority override. Bezel and timestamp excluded. */
-        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track) {
+        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track):not(#yt-cm-wfs-btn) {
             opacity: 0 !important;
             pointer-events: none !important;
         }
@@ -155,6 +155,53 @@ function injectStyles() {
         #yt-cm-timestamp.yt-cm-ts-visible {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
         }
+
+        /* Feature 6: WFS Floating Button */
+        #yt-cm-wfs-btn {
+            position: absolute !important;
+            z-index: 3100 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 6px !important;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 6px !important;
+            color: rgba(255, 255, 255, 0.9) !important;
+            cursor: default !important;
+            transition: color 0.18s, background 0.18s !important;
+            user-select: none !important;
+            outline: none !important;
+        }
+        #yt-cm-wfs-btn:hover {
+            color: rgba(255, 255, 255, 0.85) !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+        #yt-cm-wfs-btn.yt-cm-wfs-dragging {
+            cursor: default !important;
+            transition: none !important;
+        }
+        #yt-cm-wfs-btn.yt-cm-wfs-active {
+            color: rgba(255, 255, 255, 0.65) !important;
+        }
+        #yt-cm-wfs-btn.yt-cm-wfs-active svg {
+            transform: rotate(180deg) !important;
+        }
+        #yt-cm-wfs-btn svg {
+            flex-shrink: 0 !important;
+            transition: transform 0.18s !important;
+        }
+        /* Hide WFS button when no mouse movement (autohide active), show on movement */
+        #movie_player.ytp-autohide #yt-cm-wfs-btn {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.3s ease !important;
+        }
+        #movie_player:not(.ytp-autohide) #yt-cm-wfs-btn {
+            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
+            pointer-events: auto !important;
+            transition: opacity 0.15s ease !important;
+        }
     `;
     (document.head || document.documentElement).appendChild(s);
 }
@@ -207,7 +254,109 @@ function exitWFS() {
     });
 }
 function onWFSKey(e) { if (e.key === 'Escape') exitWFS(); }
-function toggleWFS() { isWFS ? exitWFS() : enterWFS(); }
+function toggleWFS() { isWFS ? exitWFS() : enterWFS(); updateWFSBtn(); }
+
+// ── Feature 6: WFS Floating Button ───────────────────────────────────────────
+let wfsBtnEl       = null;
+let _wfsPosX       = 0.95;   // fraction of player width  (default: top-right)
+let _wfsPosY       = 0.02;   // fraction of player height
+let _wfsDragStartX = 0, _wfsDragStartY = 0;
+let _wfsDragOrigL  = 0, _wfsDragOrigT  = 0;
+let _wfsDragging   = false;
+const WFS_DRAG_THRESHOLD = 4;
+
+function applyWFSBtnPosition() {
+    if (!wfsBtnEl || !playerEl) return;
+    const pr  = playerEl.getBoundingClientRect();
+    const elW = wfsBtnEl.offsetWidth  || 28;
+    const elH = wfsBtnEl.offsetHeight || 28;
+    const left = Math.min(Math.max(0, _wfsPosX * pr.width),  pr.width  - elW);
+    const top  = Math.min(Math.max(0, _wfsPosY * pr.height), pr.height - elH);
+    wfsBtnEl.style.left = left + 'px';
+    wfsBtnEl.style.top  = top  + 'px';
+}
+
+function saveWFSBtnPosition() {
+    chrome.storage.local.set({ wfsBtnPosX: _wfsPosX, wfsBtnPosY: _wfsPosY });
+}
+
+function onWFSBtnDragMove(e) {
+    const dx = e.clientX - _wfsDragStartX;
+    const dy = e.clientY - _wfsDragStartY;
+    if (!_wfsDragging && Math.hypot(dx, dy) < WFS_DRAG_THRESHOLD) return;
+    _wfsDragging = true;
+    wfsBtnEl.classList.add('yt-cm-wfs-dragging');
+    const pr  = playerEl.getBoundingClientRect();
+    const elW = wfsBtnEl.offsetWidth;
+    const elH = wfsBtnEl.offsetHeight;
+    const newLeft = Math.min(Math.max(0, _wfsDragOrigL + dx), pr.width  - elW);
+    const newTop  = Math.min(Math.max(0, _wfsDragOrigT + dy), pr.height - elH);
+    wfsBtnEl.style.left = newLeft + 'px';
+    wfsBtnEl.style.top  = newTop  + 'px';
+    _wfsPosX = newLeft / pr.width;
+    _wfsPosY = newTop  / pr.height;
+}
+
+function onWFSBtnDragEnd(e) {
+    document.removeEventListener('mousemove', onWFSBtnDragMove);
+    document.removeEventListener('mouseup',   onWFSBtnDragEnd);
+    wfsBtnEl.classList.remove('yt-cm-wfs-dragging');
+    if (!_wfsDragging) {
+        toggleWFS();   // short tap = toggle
+    } else {
+        saveWFSBtnPosition();
+    }
+    _wfsDragging = false;
+}
+
+function onWFSBtnDragStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    _wfsDragStartX = e.clientX;
+    _wfsDragStartY = e.clientY;
+    _wfsDragOrigL  = parseInt(wfsBtnEl.style.left) || wfsBtnEl.offsetLeft;
+    _wfsDragOrigT  = parseInt(wfsBtnEl.style.top)  || wfsBtnEl.offsetTop;
+    _wfsDragging   = false;
+    document.addEventListener('mousemove', onWFSBtnDragMove);
+    document.addEventListener('mouseup',   onWFSBtnDragEnd);
+}
+
+function updateWFSBtn() {
+    if (!wfsBtnEl) return;
+    wfsBtnEl.classList.toggle('yt-cm-wfs-active', isWFS);
+    wfsBtnEl.title = isWFS ? 'Exit Windowed Fullscreen (` or Esc) · Drag to move' : 'Windowed Fullscreen (`) · Drag to move';
+}
+
+function onWFSBtnResize() { applyWFSBtnPosition(); }
+
+function injectWFSBtn() {
+    if (!playerEl) return;
+    if (!location.pathname.startsWith('/watch')) return;
+
+    // Re-use existing element if already inside player
+    if (document.getElementById('yt-cm-wfs-btn')) {
+        wfsBtnEl = document.getElementById('yt-cm-wfs-btn');
+        updateWFSBtn();
+        requestAnimationFrame(applyWFSBtnPosition);
+        return;
+    }
+
+    wfsBtnEl = document.createElement('button');
+    wfsBtnEl.id = 'yt-cm-wfs-btn';
+    wfsBtnEl.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
+    `;
+    wfsBtnEl.addEventListener('mousedown', onWFSBtnDragStart);
+    playerEl.appendChild(wfsBtnEl);
+    updateWFSBtn();
+    requestAnimationFrame(() => { applyWFSBtnPosition(); });
+    window.addEventListener('resize', onWFSBtnResize, { passive: true });
+}
 
 // ── 3. Feature 3: Cinema Mode ─────────────────────────────────────────────────
 // Four fixed <div> bars surround the player (top / bottom / left / right).
@@ -336,7 +485,7 @@ function toggleProgressBar() {
 }
 
 // ── Feature 4: Timestamp Overlay ─────────────────────────────────────────────
-let isTimestampVisible  = false;
+let isTimestampVisible  = true;
 let isShowingRemaining  = false;   // false = current/total, true = remaining/total
 let timestampEl         = null;
 
@@ -480,6 +629,7 @@ function hideTimestamp() {
 function toggleTimestamp() {
     isTimestampVisible = !isTimestampVisible;
     isTimestampVisible ? showTimestamp() : hideTimestamp();
+    chrome.storage.local.set({ timestamp: isTimestampVisible });
 }
 
 // Keyboard shortcuts (ignored when typing in an input)
@@ -571,7 +721,7 @@ function findPlayer() {
     obs.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-function init() { injectStyles(); findPlayer(); }
+function init() { injectStyles(); findPlayer(); injectWFSBtn(); }
 
 document.addEventListener('yt-navigate-finish',   init);
 document.addEventListener('yt-page-data-updated', init);
@@ -579,7 +729,7 @@ document.addEventListener('yt-page-data-updated', init);
 // ── 6. Boot: load persisted preferences then initialise ──────────────────────
 injectStyles();
 chrome.storage.local.get(
-    { hideControls: true, controlOpacity: 1, isOpacityEnabled: true, tsPosX: 0.01, tsPosY: 0.03, progressBar: false },
+    { hideControls: true, controlOpacity: 1, isOpacityEnabled: true, tsPosX: 0.01, tsPosY: 0.03, progressBar: false, wfsBtnPosX: 0.95, wfsBtnPosY: 0.02, timestamp: true },
     (result) => {
         isHideControlsEnabled = result.hideControls;
         controlOpacity        = result.controlOpacity;
@@ -587,6 +737,9 @@ chrome.storage.local.get(
         _tsPosX               = result.tsPosX;
         _tsPosY               = result.tsPosY;
         isProgressBarVisible  = result.progressBar;
+        isTimestampVisible     = result.timestamp;
+        _wfsPosX               = result.wfsBtnPosX;
+        _wfsPosY               = result.wfsBtnPosY;
         applyOpacity();
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
