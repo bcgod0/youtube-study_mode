@@ -156,6 +156,30 @@ function injectStyles() {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
         }
 
+        /* Feature 7: Speed Indicator */
+        #yt-cm-speed {
+            position: absolute !important;
+            top: 10px;
+            left: 60px;
+            z-index: 3000 !important;
+            background: rgba(0, 0, 0, 0.72) !important;
+            color: #fff !important;
+            font-family: 'Roboto', 'YouTube Noto', Arial, sans-serif !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.04em !important;
+            padding: 3px 8px !important;
+            border-radius: 4px !important;
+            cursor: default !important;
+            user-select: none !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s ease !important;
+            white-space: nowrap !important;
+        }
+        #yt-cm-speed.yt-cm-sp-visible {
+            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
+        }
+
         /* Feature 6: WFS Floating Button */
         #yt-cm-wfs-btn {
             position: absolute !important;
@@ -632,6 +656,120 @@ function toggleTimestamp() {
     chrome.storage.local.set({ timestamp: isTimestampVisible });
 }
 
+// ── Feature 7: Speed Indicator ───────────────────────────────────────────────
+let isSpeedVisible = false;
+let speedEl        = null;
+
+// Drag state
+let _spDragStartX = 0, _spDragStartY = 0;
+let _spDragOrigL  = 0, _spDragOrigT  = 0;
+let _spDragging   = false;
+
+// Position as fractions of player size
+let _spPosX = 0.08;   // default: near left, below timestamp
+let _spPosY = 0.03;
+
+function applySpPosition() {
+    if (!speedEl || !playerEl) return;
+    const pr  = playerEl.getBoundingClientRect();
+    const elW = speedEl.offsetWidth  || 0;
+    const elH = speedEl.offsetHeight || 0;
+    const left = Math.min(Math.max(0, _spPosX * pr.width),  pr.width  - elW);
+    const top  = Math.min(Math.max(0, _spPosY * pr.height), pr.height - elH);
+    speedEl.style.left = left + 'px';
+    speedEl.style.top  = top  + 'px';
+}
+
+function saveSpPosition() {
+    chrome.storage.local.set({ spPosX: _spPosX, spPosY: _spPosY });
+}
+
+function updateSpeedDisplay() {
+    if (!speedEl) return;
+    const v = getVideo();
+    const rate = v ? v.playbackRate : 1;
+    speedEl.textContent = rate === 1 ? '1×' : `${parseFloat(rate.toFixed(2))}×`;
+}
+
+function onSpeedChange() { updateSpeedDisplay(); }
+function onSpResize()    { applySpPosition(); }
+
+function ensureSpeedEl() {
+    if (!speedEl || !document.contains(speedEl)) {
+        speedEl = document.getElementById('yt-cm-speed');
+        if (!speedEl && playerEl) {
+            speedEl = document.createElement('div');
+            speedEl.id = 'yt-cm-speed';
+            playerEl.appendChild(speedEl);
+        }
+    }
+    return speedEl;
+}
+
+function onSpDragMove(e) {
+    const dx = e.clientX - _spDragStartX;
+    const dy = e.clientY - _spDragStartY;
+    if (!_spDragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    _spDragging = true;
+    const pr  = playerEl.getBoundingClientRect();
+    const elW = speedEl.offsetWidth;
+    const elH = speedEl.offsetHeight;
+    const newLeft = Math.min(Math.max(0, _spDragOrigL + dx), pr.width  - elW);
+    const newTop  = Math.min(Math.max(0, _spDragOrigT + dy), pr.height - elH);
+    speedEl.style.left = newLeft + 'px';
+    speedEl.style.top  = newTop  + 'px';
+    _spPosX = newLeft / pr.width;
+    _spPosY = newTop  / pr.height;
+}
+
+function onSpDragEnd() {
+    document.removeEventListener('mousemove', onSpDragMove);
+    document.removeEventListener('mouseup',   onSpDragEnd);
+    if (!_spDragging) {
+        // tap = no action (speed display is read-only)
+    } else {
+        saveSpPosition();
+    }
+    _spDragging = false;
+}
+
+function onSpDragStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    _spDragStartX = e.clientX;
+    _spDragStartY = e.clientY;
+    _spDragOrigL  = parseInt(speedEl.style.left) || speedEl.offsetLeft;
+    _spDragOrigT  = parseInt(speedEl.style.top)  || speedEl.offsetTop;
+    _spDragging   = false;
+    document.addEventListener('mousemove', onSpDragMove);
+    document.addEventListener('mouseup',   onSpDragEnd);
+}
+
+function showSpeed() {
+    const el = ensureSpeedEl();
+    if (!el) return;
+    el.classList.add('yt-cm-sp-visible');
+    requestAnimationFrame(() => { applySpPosition(); updateSpeedDisplay(); });
+    getVideo()?.addEventListener('ratechange', onSpeedChange);
+    el.addEventListener('mousedown', onSpDragStart);
+    window.addEventListener('resize', onSpResize, { passive: true });
+}
+
+function hideSpeed() {
+    speedEl?.classList.remove('yt-cm-sp-visible');
+    speedEl?.removeEventListener('mousedown', onSpDragStart);
+    document.removeEventListener('mousemove', onSpDragMove);
+    document.removeEventListener('mouseup',   onSpDragEnd);
+    window.removeEventListener('resize', onSpResize);
+    getVideo()?.removeEventListener('ratechange', onSpeedChange);
+}
+
+function toggleSpeed() {
+    isSpeedVisible = !isSpeedVisible;
+    isSpeedVisible ? showSpeed() : hideSpeed();
+    chrome.storage.local.set({ speedIndicator: isSpeedVisible });
+}
+
 // Keyboard shortcuts (ignored when typing in an input)
 document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, [contenteditable]')) return;
@@ -642,6 +780,7 @@ document.addEventListener('keydown', (e) => {
         if (e.code === 'KeyZ')      toggleCinema();        // Z  → Cinema Mode
         if (e.code === 'KeyH')      toggleHideControls();  // H  → Hide Controls
         if (e.code === 'KeyY')      toggleTimestamp();     // Y  → Timestamp Overlay
+        if (e.code === 'KeyX')      toggleSpeed();         // X  → Speed Indicator
         if (e.code === 'KeyP')      toggleProgressBar();   // P  → Progress Bar
         if (e.code === 'KeyE') {                           // E  → opacity −5%
             controlOpacity = parseFloat(Math.max(0, controlOpacity - 0.05).toFixed(2));
@@ -701,8 +840,10 @@ function findPlayer() {
         timestampEl     = null;
         progressTrackEl = null;
         progressFillEl  = null;
+        speedEl         = null;
         if (isTimestampVisible)   showTimestamp();
         if (isProgressBarVisible) showProgressBar();
+        if (isSpeedVisible)       showSpeed();
         return;
     }
     const obs = new MutationObserver(() => {
@@ -713,8 +854,10 @@ function findPlayer() {
             timestampEl     = null;
             progressTrackEl = null;
             progressFillEl  = null;
+            speedEl         = null;
             if (isTimestampVisible)   showTimestamp();
             if (isProgressBarVisible) showProgressBar();
+            if (isSpeedVisible)       showSpeed();
             obs.disconnect();
         }
     });
@@ -729,7 +872,7 @@ document.addEventListener('yt-page-data-updated', init);
 // ── 6. Boot: load persisted preferences then initialise ──────────────────────
 injectStyles();
 chrome.storage.local.get(
-    { hideControls: true, controlOpacity: 1, isOpacityEnabled: true, tsPosX: 0.01, tsPosY: 0.03, progressBar: false, wfsBtnPosX: 0.95, wfsBtnPosY: 0.02, timestamp: true },
+    { hideControls: true, controlOpacity: 1, isOpacityEnabled: true, tsPosX: 0.01, tsPosY: 0.03, progressBar: false, wfsBtnPosX: 0.95, wfsBtnPosY: 0.02, timestamp: true, speedIndicator: false, spPosX: 0.08, spPosY: 0.03 },
     (result) => {
         isHideControlsEnabled = result.hideControls;
         controlOpacity        = result.controlOpacity;
@@ -738,6 +881,9 @@ chrome.storage.local.get(
         _tsPosY               = result.tsPosY;
         isProgressBarVisible  = result.progressBar;
         isTimestampVisible     = result.timestamp;
+        isSpeedVisible         = result.speedIndicator;
+        _spPosX                = result.spPosX;
+        _spPosY                = result.spPosY;
         _wfsPosX               = result.wfsBtnPosX;
         _wfsPosY               = result.wfsBtnPosY;
         applyOpacity();
