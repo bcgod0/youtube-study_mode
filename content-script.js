@@ -226,6 +226,25 @@ function injectStyles() {
             pointer-events: auto !important;
             transition: opacity 0.15s ease !important;
         }
+
+        /* Feature 8: Zoom in WFS */
+        html.yt-cm-wfs #movie_player .html5-video-container video {
+            transform: scale(var(--yt-cm-zoom, 1)) translate(var(--yt-cm-pan-x, 0px), var(--yt-cm-pan-y, 0px)) !important;
+            transform-origin: center center !important;
+            transition: transform 0.15s ease !important;
+        }
+        html.yt-cm-wfs #movie_player.yt-cm-zoomed-in:not(.ytp-autohide) .html5-video-container {
+            cursor: default !important;
+        }
+        html.yt-cm-wfs #movie_player.yt-cm-zoom-panning:not(.ytp-autohide) .html5-video-container {
+            cursor: default !important;
+        }
+        html.yt-cm-wfs #movie_player.ytp-autohide .html5-video-container {
+            cursor: none !important;
+        }
+        html.yt-cm-wfs #movie_player.yt-cm-zoom-panning .html5-video-container video {
+            transition: none !important;
+        }
     `;
     (document.head || document.documentElement).appendChild(s);
 }
@@ -263,6 +282,7 @@ function enterWFS() {
     window.scrollTo(0, 0);
     isWFS = true;
     document.addEventListener('keydown', onWFSKey, true);
+    attachZoomListeners();
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
 function exitWFS() {
@@ -270,6 +290,8 @@ function exitWFS() {
     document.documentElement.classList.remove('yt-cm-wfs');
     isWFS = false;
     document.removeEventListener('keydown', onWFSKey, true);
+    detachZoomListeners();
+    resetZoom();  // always reset zoom when leaving WFS
     window.scrollTo(0, 0);
     // Let the CSS revert in one frame, then tell YouTube's player to re-measure
     requestAnimationFrame(() => {
@@ -792,6 +814,21 @@ document.addEventListener('keydown', (e) => {
             applyOpacity();
             chrome.storage.local.set({ controlOpacity });
         }
+        // Zoom shortcuts (only in WFS mode)
+        if (isWFS) {
+            if (e.code === 'KeyW') {                                 // W → zoom in
+                e.preventDefault();
+                zoomBy(ZOOM_STEP);
+            }
+            if (e.code === 'KeyQ') {                                 // Q → zoom out
+                e.preventDefault();
+                zoomBy(-ZOOM_STEP);
+            }
+            if (e.code === 'Digit0' || e.code === 'Numpad0') {      // 0 → reset zoom
+                e.preventDefault();
+                resetZoom();
+            }
+        }
     }
 
     if (e.shiftKey) {
@@ -810,6 +847,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             opacityEnabled:      isOpacityEnabled,
             controlOpacity,
             progressBar:         isProgressBarVisible,
+            zoomLevel:           _zoomLevel,
         });
     }
     else if (msg.action === 'toggleHideControls') { toggleHideControls(); }
@@ -826,6 +864,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         controlOpacity = Math.min(1, Math.max(0, msg.value));
         applyOpacity();
         chrome.storage.local.set({ controlOpacity });
+    }
+    else if (msg.action === 'resetZoom') {
+        resetZoom();
     }
     return true;
 });
@@ -862,6 +903,128 @@ function findPlayer() {
         }
     });
     obs.observe(document.documentElement, { childList: true, subtree: true });
+}
+
+// ── Feature 8: Video Zoom (WFS only) ─────────────────────────────────────────
+const ZOOM_MIN       = 1;
+const ZOOM_MAX       = 5;
+const ZOOM_STEP      = 0.05;   // per keypress (5% — smooth)
+const ZOOM_SCROLL_STEP = 0.08; // per scroll notch (slightly larger for wheel)
+let _zoomLevel    = 1;
+let _panX         = 0;      // px offsets
+let _panY         = 0;
+
+// Pan drag state
+let _zoomPanning      = false;
+let _zoomPanStartX    = 0;
+let _zoomPanStartY    = 0;
+let _zoomPanOrigX     = 0;
+let _zoomPanOrigY     = 0;
+
+function applyZoom() {
+    if (!playerEl) return;
+    playerEl.style.setProperty('--yt-cm-zoom', _zoomLevel);
+    playerEl.style.setProperty('--yt-cm-pan-x', _panX + 'px');
+    playerEl.style.setProperty('--yt-cm-pan-y', _panY + 'px');
+    playerEl.classList.toggle('yt-cm-zoomed-in', _zoomLevel > 1);
+}
+
+function zoomBy(delta) {
+    _zoomLevel = parseFloat(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, _zoomLevel + delta)).toFixed(2));
+    // If zooming back to 1×, also reset pan
+    if (_zoomLevel <= 1) { _panX = 0; _panY = 0; }
+    // Clamp pan so video doesn't fly off screen
+    clampPan();
+    applyZoom();
+}
+
+function resetZoom() {
+    _zoomLevel = 1;
+    _panX = 0;
+    _panY = 0;
+    if (playerEl) {
+        playerEl.classList.remove('yt-cm-zoomed-in', 'yt-cm-zoom-panning');
+    }
+    applyZoom();
+}
+
+function clampPan() {
+    if (_zoomLevel <= 1) { _panX = 0; _panY = 0; return; }
+    // Maximum pan is half the overflow in each axis
+    // At 2× zoom on a 1920px wide player, the video is 3840px, overflow = 1920/2 = 960
+    if (!playerEl) return;
+    const r = playerEl.getBoundingClientRect();
+    const maxPanX = (r.width  * (_zoomLevel - 1)) / (2 * _zoomLevel);
+    const maxPanY = (r.height * (_zoomLevel - 1)) / (2 * _zoomLevel);
+    _panX = Math.min(maxPanX, Math.max(-maxPanX, _panX));
+    _panY = Math.min(maxPanY, Math.max(-maxPanY, _panY));
+}
+
+
+// Scroll-to-zoom handler (WFS only)
+function onWFSWheel(e) {
+    if (!isWFS || !playerEl) return;
+    // Only zoom when Ctrl is held OR when cursor is inside the player
+    const r = playerEl.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right
+                && e.clientY >= r.top  && e.clientY <= r.bottom;
+    if (!inside) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY < 0 ? ZOOM_SCROLL_STEP : -ZOOM_SCROLL_STEP;
+    zoomBy(delta);
+}
+
+// Pan handlers (drag to pan when zoomed in)
+function onZoomPanStart(e) {
+    if (!isWFS || _zoomLevel <= 1 || !playerEl) return;
+    // Only start pan with left button and NOT on controls
+    if (e.button !== 0) return;
+    // Don't intercept clicks on interactive elements
+    if (e.target.closest('.ytp-chrome-bottom, .ytp-chrome-top, #yt-cm-wfs-btn, #yt-cm-timestamp, #yt-cm-speed')) return;
+
+    e.preventDefault();
+    _zoomPanning   = true;
+    _zoomPanStartX = e.clientX;
+    _zoomPanStartY = e.clientY;
+    _zoomPanOrigX  = _panX;
+    _zoomPanOrigY  = _panY;
+    playerEl.classList.add('yt-cm-zoom-panning');
+    document.addEventListener('mousemove', onZoomPanMove);
+    document.addEventListener('mouseup',   onZoomPanEnd);
+}
+
+function onZoomPanMove(e) {
+    if (!_zoomPanning) return;
+    const dx = (e.clientX - _zoomPanStartX) / _zoomLevel;
+    const dy = (e.clientY - _zoomPanStartY) / _zoomLevel;
+    _panX = _zoomPanOrigX + dx;
+    _panY = _zoomPanOrigY + dy;
+    clampPan();
+    applyZoom();
+}
+
+function onZoomPanEnd() {
+    _zoomPanning = false;
+    playerEl?.classList.remove('yt-cm-zoom-panning');
+    document.removeEventListener('mousemove', onZoomPanMove);
+    document.removeEventListener('mouseup',   onZoomPanEnd);
+}
+
+function attachZoomListeners() {
+    if (!playerEl) return;
+    // Wheel listener on the player (needs { passive: false } to preventDefault)
+    playerEl.addEventListener('wheel', onWFSWheel, { passive: false });
+    playerEl.addEventListener('mousedown', onZoomPanStart);
+}
+
+function detachZoomListeners() {
+    if (!playerEl) return;
+    playerEl.removeEventListener('wheel', onWFSWheel);
+    playerEl.removeEventListener('mousedown', onZoomPanStart);
+    document.removeEventListener('mousemove', onZoomPanMove);
+    document.removeEventListener('mouseup',   onZoomPanEnd);
 }
 
 function init() { injectStyles(); findPlayer(); injectWFSBtn(); }

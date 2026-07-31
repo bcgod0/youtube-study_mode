@@ -5,6 +5,7 @@ const statusTx = document.getElementById('status-text');
 const rows = {
     hide:      document.getElementById('row-hide'),
     wfs:       document.getElementById('row-wfs'),
+    zoom:      document.getElementById('row-zoom'),
     cinema:    document.getElementById('row-cinema'),
     timestamp: document.getElementById('row-timestamp'),
     opacity:   document.getElementById('row-opacity'),
@@ -18,6 +19,8 @@ const chks = {
 };
 const slider         = document.getElementById('slider-opacity');
 const opacityDisplay = document.getElementById('opacity-display');
+const zoomDisplay    = document.getElementById('zoom-display');
+const btnZoomReset   = document.getElementById('btn-zoom-reset');
 
 async function getTab() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -60,6 +63,15 @@ async function init() {
     slider.value               = pct;
     opacityDisplay.textContent = pct + '%';
 
+    // Set zoom display
+    const zoomPct = Math.round((state.zoomLevel ?? 1) * 100);
+    zoomDisplay.textContent = zoomPct + '%';
+    if (zoomPct > 100) {
+        zoomDisplay.style.color = '#ff4444';
+    } else {
+        zoomDisplay.style.color = '#666';
+    }
+
     // ── Wire toggles ──
     chks.hide.addEventListener('change', async () => {
         const t = await getTab();
@@ -89,6 +101,14 @@ async function init() {
         const val = pct / 100;          // 0.0 – 1.0
         const t = await getTab();
         chrome.tabs.sendMessage(t.id, { action: 'setControlOpacity', value: val }).catch(() => {});
+    });
+
+    // ── Wire zoom reset button ──
+    btnZoomReset.addEventListener('click', async () => {
+        const t = await getTab();
+        chrome.tabs.sendMessage(t.id, { action: 'resetZoom' }).catch(() => {});
+        zoomDisplay.textContent = '100%';
+        zoomDisplay.style.color = '#666';
     });
 }
 
