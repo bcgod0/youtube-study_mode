@@ -1271,7 +1271,6 @@ function findPlayer() {
 const ZOOM_MIN       = 1;
 const ZOOM_MAX       = 5;
 const ZOOM_STEP      = 0.05;   // per keypress (5% — smooth)
-const ZOOM_SCROLL_STEP = 0.08; // per scroll notch (slightly larger for wheel)
 let _zoomLevel    = 1;
 let _panX         = 0;      // px offsets
 let _panY         = 0;
@@ -1322,22 +1321,6 @@ function clampPan() {
     _panY = Math.min(maxPanY, Math.max(-maxPanY, _panY));
 }
 
-
-// Scroll-to-zoom handler (WFS only)
-function onWFSWheel(e) {
-    if (!isWFS || !playerEl) return;
-    // Only zoom when Ctrl is held OR when cursor is inside the player
-    const r = playerEl.getBoundingClientRect();
-    const inside = e.clientX >= r.left && e.clientX <= r.right
-                && e.clientY >= r.top  && e.clientY <= r.bottom;
-    if (!inside) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY < 0 ? ZOOM_SCROLL_STEP : -ZOOM_SCROLL_STEP;
-    zoomBy(delta);
-}
-
 // Pan handlers (drag to pan when zoomed in)
 function onZoomPanStart(e) {
     if (!isWFS || _zoomLevel <= 1 || !playerEl) return;
@@ -1376,14 +1359,11 @@ function onZoomPanEnd() {
 
 function attachZoomListeners() {
     if (!playerEl) return;
-    // Wheel listener on the player (needs { passive: false } to preventDefault)
-    playerEl.addEventListener('wheel', onWFSWheel, { passive: false });
     playerEl.addEventListener('mousedown', onZoomPanStart);
 }
 
 function detachZoomListeners() {
     if (!playerEl) return;
-    playerEl.removeEventListener('wheel', onWFSWheel);
     playerEl.removeEventListener('mousedown', onZoomPanStart);
     document.removeEventListener('mousemove', onZoomPanMove);
     document.removeEventListener('mouseup',   onZoomPanEnd);
