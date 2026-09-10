@@ -6,6 +6,7 @@ const rows = {
     hide:      document.getElementById('row-hide'),
     wfs:       document.getElementById('row-wfs'),
     zoom:      document.getElementById('row-zoom'),
+    quality:   document.getElementById('row-quality'),
     cinema:    document.getElementById('row-cinema'),
     timestamp: document.getElementById('row-timestamp'),
     opacity:   document.getElementById('row-opacity'),
@@ -13,6 +14,7 @@ const rows = {
 const chks = {
     hide:      document.getElementById('chk-hide'),
     wfs:       document.getElementById('chk-wfs'),
+    quality:   document.getElementById('chk-quality'),
     cinema:    document.getElementById('chk-cinema'),
     timestamp: document.getElementById('chk-timestamp'),
     opacity:   document.getElementById('chk-opacity'),
@@ -20,6 +22,7 @@ const chks = {
 const slider         = document.getElementById('slider-opacity');
 const opacityDisplay = document.getElementById('opacity-display');
 const zoomDisplay    = document.getElementById('zoom-display');
+const qualityDisplay = document.getElementById('quality-display');
 const btnZoomReset   = document.getElementById('btn-zoom-reset');
 
 async function getTab() {
@@ -54,9 +57,15 @@ async function init() {
     // Set toggle states
     chks.hide.checked      = state.hideControls;
     chks.wfs.checked       = state.wfs;
+    chks.quality.checked   = state.qualityVisible ?? true;
     chks.cinema.checked    = state.cinema;
     chks.timestamp.checked = state.isTimestampVisible ?? false;
     chks.opacity.checked   = state.opacityEnabled ?? true;
+
+    // Set quality display
+    if (state.qualityLabel) {
+        qualityDisplay.textContent = state.qualityLabel;
+    }
 
     // Set slider from live state
     const pct = Math.round((state.controlOpacity ?? 1) * 100);
@@ -80,6 +89,10 @@ async function init() {
     chks.wfs.addEventListener('change', async () => {
         const t = await getTab();
         chrome.tabs.sendMessage(t.id, { action: 'toggleWindowedFS' }).catch(() => {});
+    });
+    chks.quality.addEventListener('change', async () => {
+        const t = await getTab();
+        chrome.tabs.sendMessage(t.id, { action: 'toggleQuality' }).catch(() => {});
     });
     chks.cinema.addEventListener('change', async () => {
         const t = await getTab();

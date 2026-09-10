@@ -9,13 +9,13 @@ function injectStyles() {
         /* Controls Opacity — only when YouTube is actively showing controls.
            Wildcard [class*="bezel"] covers all bezel variants so the toast is never dimmed.
            #yt-cm-timestamp is excluded so the toggle fully controls its visibility. */
-        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track):not(#yt-cm-wfs-btn):not(#yt-cm-playlist-btn):not(.yt-cm-playlist-drawer) {
+        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-hud):not(#yt-cm-quality-menu):not(#yt-cm-progress-bar-track):not(#yt-cm-action-group):not(.yt-cm-playlist-drawer) {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
             transition: opacity 0.15s ease !important;
         }
 
         /* Hide Controls on Hover — highest priority override. Bezel and timestamp excluded. */
-        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-timestamp):not(#yt-cm-progress-bar-track):not(#yt-cm-wfs-btn):not(#yt-cm-playlist-btn):not(.yt-cm-playlist-drawer) {
+        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-hud):not(#yt-cm-quality-menu):not(#yt-cm-progress-bar-track):not(#yt-cm-action-group):not(.yt-cm-playlist-drawer) {
             opacity: 0 !important;
             pointer-events: none !important;
         }
@@ -132,78 +132,210 @@ function injectStyles() {
         }
 
 
-        /* Feature 4: Timestamp Overlay */
-        #yt-cm-timestamp {
+        /* ── Unified HUD Unit (Timestamp · Speed · Quality) ── */
+        #yt-cm-hud {
             position: absolute !important;
             top: 10px;
             left: 4px;
             z-index: 3000 !important;
+            display: inline-flex !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 2px !important;
             background: rgba(0, 0, 0, 0.72) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
             color: #fff !important;
             font-family: 'Roboto', 'YouTube Noto', Arial, sans-serif !important;
             font-size: 13px !important;
             font-weight: 500 !important;
-            letter-spacing: 0.04em !important;
-            padding: 3px 8px !important;
-            border-radius: 4px !important;
+            letter-spacing: 0.03em !important;
+            padding: 4px 8px !important;
+            border-radius: 6px !important;
             cursor: default !important;
             user-select: none !important;
             opacity: 0 !important;
             transition: opacity 0.2s ease !important;
             white-space: nowrap !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
         }
-        #yt-cm-timestamp.yt-cm-ts-visible {
+        #yt-cm-hud.yt-cm-hud-visible {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
         }
+        #yt-cm-hud.yt-cm-dragging {
+            cursor: default !important;
+            transition: none !important;
+        }
 
-        /* Feature 7: Speed Indicator */
-        #yt-cm-speed {
+        .yt-cm-hud-item {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 4px !important;
+            padding: 1px 4px !important;
+            border-radius: 4px !important;
+            line-height: 1.35 !important;
+            transition: background 0.15s ease, color 0.15s ease !important;
+        }
+        #yt-cm-hud-time {
+            cursor: pointer !important;
+        }
+        #yt-cm-hud-time:hover {
+            background: rgba(255, 255, 255, 0.15) !important;
+        }
+        #yt-cm-hud-speed {
+            cursor: default !important;
+        }
+        #yt-cm-hud-quality {
+            cursor: pointer !important;
+        }
+        #yt-cm-hud-quality:hover {
+            background: rgba(255, 255, 255, 0.15) !important;
+        }
+        #yt-cm-hud-quality.yt-cm-quality-active {
+            background: rgba(255, 68, 68, 0.25) !important;
+            color: #ff4444 !important;
+        }
+        #yt-cm-hud .yt-cm-hd-badge {
+            background: #cc0000;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 3px;
+            border-radius: 2px;
+            letter-spacing: 0.02em;
+            line-height: 1;
+        }
+
+        /* Quality Dropdown Menu in WFS */
+        #yt-cm-quality-menu {
             position: absolute !important;
-            top: 10px;
-            left: 60px;
-            z-index: 3000 !important;
-            background: rgba(0, 0, 0, 0.72) !important;
+            z-index: 3200 !important;
+            background: rgba(15, 15, 15, 0.95) !important;
+            backdrop-filter: blur(24px) !important;
+            -webkit-backdrop-filter: blur(24px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.14) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.85) !important;
             color: #fff !important;
             font-family: 'Roboto', 'YouTube Noto', Arial, sans-serif !important;
             font-size: 13px !important;
-            font-weight: 500 !important;
-            letter-spacing: 0.04em !important;
-            padding: 3px 8px !important;
-            border-radius: 4px !important;
-            cursor: default !important;
+            padding: 6px 0 !important;
+            min-width: 140px !important;
+            max-height: 280px !important;
+            overflow-y: auto !important;
             user-select: none !important;
-            opacity: 0 !important;
-            transition: opacity 0.2s ease !important;
-            white-space: nowrap !important;
+            animation: yt-cm-menu-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
         }
-        #yt-cm-speed.yt-cm-sp-visible {
-            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
+        @keyframes yt-cm-menu-fade-in {
+            from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
         }
-
-        /* Feature 6: WFS Floating Button */
-        #yt-cm-wfs-btn {
-            position: absolute !important;
-            z-index: 3100 !important;
+        .yt-cm-quality-header {
+            padding: 6px 14px 6px 14px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.06em !important;
+            color: rgba(255, 255, 255, 0.5) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            margin-bottom: 4px !important;
+        }
+        .yt-cm-quality-item {
             display: flex !important;
             align-items: center !important;
+            padding: 7px 14px !important;
+            cursor: pointer !important;
+            transition: background 0.12s ease !important;
+            color: rgba(255, 255, 255, 0.88) !important;
+            font-size: 12.5px !important;
+            white-space: nowrap !important;
+        }
+        .yt-cm-quality-item:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+        }
+        .yt-cm-quality-item.yt-cm-quality-item-active {
+            color: #ff4444 !important;
+            font-weight: 500 !important;
+        }
+        .yt-cm-quality-check {
+            width: 16px !important;
+            height: 16px !important;
+            margin-right: 8px !important;
+            display: inline-flex !important;
+            align-items: center !important;
             justify-content: center !important;
-            padding: 6px !important;
+            flex-shrink: 0 !important;
+            color: #ff4444 !important;
+        }
+        .yt-cm-quality-item-label {
+            flex: 1 !important;
+        }
+
+        /* Feature 6 & 9: Floating Actions Group (Playlist + WFS buttons) */
+        #yt-cm-action-group {
+            position: absolute !important;
+            top: 10px;
+            left: 12px;
+            right: auto !important;
+            bottom: auto !important;
+            width: fit-content !important;
+            max-width: fit-content !important;
+            white-space: nowrap !important;
+            z-index: 3100 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 2px !important;
+            background: rgba(0, 0, 0, 0.72) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border-radius: 6px !important;
+            padding: 2px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+            cursor: default !important;
+            user-select: none !important;
+            opacity: 0 !important;
+            transition: opacity 0.15s ease !important;
+        }
+        #yt-cm-action-group.yt-cm-actions-dragging {
+            cursor: default !important;
+            transition: none !important;
+        }
+        /* Hide action group when no mouse movement (autohide active), show on movement or when drawer is active */
+        #movie_player.ytp-autohide #yt-cm-action-group:not(.yt-cm-playlist-active) {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transition: opacity 0.3s ease !important;
+        }
+        #movie_player:not(.ytp-autohide) #yt-cm-action-group,
+        #yt-cm-action-group.yt-cm-playlist-active {
+            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
+            pointer-events: auto !important;
+            transition: opacity 0.15s ease !important;
+        }
+
+        .yt-cm-action-btn {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 5px !important;
             background: transparent !important;
             border: none !important;
-            border-radius: 6px !important;
+            border-radius: 4px !important;
             color: rgba(255, 255, 255, 0.9) !important;
-            cursor: default !important;
+            cursor: pointer !important;
             transition: color 0.18s, background 0.18s !important;
             user-select: none !important;
             outline: none !important;
         }
-        #yt-cm-wfs-btn:hover {
-            color: rgba(255, 255, 255, 0.85) !important;
-            background: rgba(255, 255, 255, 0.06) !important;
+        .yt-cm-action-btn:hover {
+            color: #fff !important;
+            background: rgba(255, 255, 255, 0.12) !important;
         }
-        #yt-cm-wfs-btn.yt-cm-wfs-dragging {
-            cursor: default !important;
-            transition: none !important;
+        .yt-cm-action-btn svg {
+            flex-shrink: 0 !important;
+            display: block !important;
+            transition: transform 0.18s !important;
         }
         #yt-cm-wfs-btn.yt-cm-wfs-active {
             color: rgba(255, 255, 255, 0.65) !important;
@@ -211,64 +343,15 @@ function injectStyles() {
         #yt-cm-wfs-btn.yt-cm-wfs-active svg {
             transform: rotate(180deg) !important;
         }
-        #yt-cm-wfs-btn svg {
-            flex-shrink: 0 !important;
-            transition: transform 0.18s !important;
-        }
-        /* Hide WFS button when no mouse movement (autohide active), show on movement */
-        #movie_player.ytp-autohide #yt-cm-wfs-btn {
-            opacity: 0 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease !important;
-        }
-        #movie_player:not(.ytp-autohide) #yt-cm-wfs-btn {
-            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
-            pointer-events: auto !important;
-            transition: opacity 0.15s ease !important;
-        }
-
-        /* Feature 9: WFS Floating Playlist Button & Drawer */
         #yt-cm-playlist-btn {
-            position: absolute !important;
-            z-index: 3100 !important;
-            display: none;
-            align-items: center !important;
-            justify-content: center !important;
-            padding: 6px !important;
-            background: transparent !important;
-            border: none !important;
-            border-radius: 6px !important;
-            color: rgba(255, 255, 255, 0.9) !important;
-            cursor: default !important;
-            transition: color 0.18s, background 0.18s, opacity 0.15s !important;
-            user-select: none !important;
-            outline: none !important;
+            display: none !important;
         }
-        #yt-cm-playlist-btn:hover {
-            color: rgba(255, 255, 255, 0.95) !important;
-            background: rgba(255, 255, 255, 0.08) !important;
-        }
-        #yt-cm-playlist-btn.yt-cm-playlist-dragging {
-            cursor: default !important;
-            transition: none !important;
+        html.yt-cm-wfs #yt-cm-playlist-btn.yt-cm-playlist-visible {
+            display: inline-flex !important;
         }
         #yt-cm-playlist-btn.yt-cm-playlist-active {
             color: #ff4444 !important;
-            background: rgba(255, 68, 68, 0.18) !important;
-        }
-        #yt-cm-playlist-btn svg {
-            flex-shrink: 0 !important;
-        }
-        #movie_player.ytp-autohide #yt-cm-playlist-btn:not(.yt-cm-playlist-active) {
-            opacity: 0 !important;
-            pointer-events: none !important;
-            transition: opacity 0.3s ease !important;
-        }
-        #movie_player:not(.ytp-autohide) #yt-cm-playlist-btn,
-        #yt-cm-playlist-btn.yt-cm-playlist-active {
-            opacity: var(--yt-cm-ctrl-opacity, 1) !important;
-            pointer-events: auto !important;
-            transition: opacity 0.15s ease !important;
+            background: rgba(255, 68, 68, 0.22) !important;
         }
 
         /* Playlist Drawer in WFS */
@@ -414,17 +497,20 @@ function enterWFS() {
     document.addEventListener('keydown', onWFSKey, true);
     attachZoomListeners();
     updatePlaylistBtnVisibility();
+    updateHudVisibility();
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
 function exitWFS() {
     if (!isWFS) return;
     if (isPlaylistDrawerOpen) closePlaylistDrawer();
+    if (isQualityMenuOpen) closeQualityMenu();
     document.documentElement.classList.remove('yt-cm-wfs');
     isWFS = false;
     document.removeEventListener('keydown', onWFSKey, true);
     detachZoomListeners();
     resetZoom();  // always reset zoom when leaving WFS
     updatePlaylistBtnVisibility();
+    updateHudVisibility();
     window.scrollTo(0, 0);
     // Let the CSS revert in one frame, then tell YouTube's player to re-measure
     requestAnimationFrame(() => {
@@ -436,6 +522,10 @@ function onWFSKey(e) {
     if (e.key === 'Escape') {
         if (isPlaylistDrawerOpen) {
             closePlaylistDrawer();
+            return;
+        }
+        if (isQualityMenuOpen) {
+            closeQualityMenu();
             return;
         }
         exitWFS();
@@ -458,69 +548,90 @@ function onWFSKey(e) {
 }
 function toggleWFS() { isWFS ? exitWFS() : enterWFS(); updateWFSBtn(); updatePlaylistBtnVisibility(); }
 
-// ── Feature 6: WFS Floating Button ───────────────────────────────────────────
-let wfsBtnEl       = null;
-let _wfsPosX       = 0.95;   // fraction of player width  (default: top-right)
-let _wfsPosY       = 0.02;   // fraction of player height
-let _wfsDragStartX = 0, _wfsDragStartY = 0;
-let _wfsDragOrigL  = 0, _wfsDragOrigT  = 0;
-let _wfsDragging   = false;
-const WFS_DRAG_THRESHOLD = 4;
+// ── Features 6 & 9: Unified Floating Actions Group (Playlist + WFS buttons) ──
+let actionGroupEl         = null;
+let wfsBtnEl              = null;
+let plBtnEl               = null;
+let _actionsPosX          = 0.94;   // fraction of player width  (default: top-right)
+let _actionsPosY          = 0.02;   // fraction of player height
+let _actionsDragStartX    = 0, _actionsDragStartY = 0;
+let _actionsDragOrigL     = 0, _actionsDragOrigT  = 0;
+let _actionsDragging      = false;
+let _actionsClickTarget   = null;
+const ACTIONS_DRAG_THRESHOLD = 4;
 
-function applyWFSBtnPosition() {
-    if (!wfsBtnEl || !playerEl) return;
+let isPlaylistDrawerOpen  = false;
+let _origPlParent         = null;
+let _origPlNextSibling    = null;
+
+function applyActionsPosition() {
+    if (!actionGroupEl || !playerEl) return;
     const pr  = playerEl.getBoundingClientRect();
-    const elW = wfsBtnEl.offsetWidth  || 28;
-    const elH = wfsBtnEl.offsetHeight || 28;
-    const left = Math.min(Math.max(0, _wfsPosX * pr.width),  pr.width  - elW);
-    const top  = Math.min(Math.max(0, _wfsPosY * pr.height), pr.height - elH);
-    wfsBtnEl.style.left = left + 'px';
-    wfsBtnEl.style.top  = top  + 'px';
+    const elW = actionGroupEl.offsetWidth  || 0;
+    const elH = actionGroupEl.offsetHeight || 0;
+    const left = Math.min(Math.max(0, _actionsPosX * pr.width),  pr.width  - elW);
+    const top  = Math.min(Math.max(0, _actionsPosY * pr.height), pr.height - elH);
+    actionGroupEl.style.left = left + 'px';
+    actionGroupEl.style.top  = top  + 'px';
+    actionGroupEl.style.right = 'auto';
 }
 
-function saveWFSBtnPosition() {
-    chrome.storage.local.set({ wfsBtnPosX: _wfsPosX, wfsBtnPosY: _wfsPosY });
+function saveActionsPosition() {
+    chrome.storage.local.set({
+        actionsPosX: _actionsPosX,
+        actionsPosY: _actionsPosY,
+        wfsBtnPosX:  _actionsPosX,
+        wfsBtnPosY:  _actionsPosY
+    });
 }
 
-function onWFSBtnDragMove(e) {
-    const dx = e.clientX - _wfsDragStartX;
-    const dy = e.clientY - _wfsDragStartY;
-    if (!_wfsDragging && Math.hypot(dx, dy) < WFS_DRAG_THRESHOLD) return;
-    _wfsDragging = true;
-    wfsBtnEl.classList.add('yt-cm-wfs-dragging');
+function onActionsDragMove(e) {
+    const dx = e.clientX - _actionsDragStartX;
+    const dy = e.clientY - _actionsDragStartY;
+    if (!_actionsDragging && Math.hypot(dx, dy) < ACTIONS_DRAG_THRESHOLD) return;
+    _actionsDragging = true;
+    actionGroupEl.classList.add('yt-cm-actions-dragging');
     const pr  = playerEl.getBoundingClientRect();
-    const elW = wfsBtnEl.offsetWidth;
-    const elH = wfsBtnEl.offsetHeight;
-    const newLeft = Math.min(Math.max(0, _wfsDragOrigL + dx), pr.width  - elW);
-    const newTop  = Math.min(Math.max(0, _wfsDragOrigT + dy), pr.height - elH);
-    wfsBtnEl.style.left = newLeft + 'px';
-    wfsBtnEl.style.top  = newTop  + 'px';
-    _wfsPosX = newLeft / pr.width;
-    _wfsPosY = newTop  / pr.height;
+    const elW = actionGroupEl.offsetWidth;
+    const elH = actionGroupEl.offsetHeight;
+    const newLeft = Math.min(Math.max(0, _actionsDragOrigL + dx), pr.width  - elW);
+    const newTop  = Math.min(Math.max(0, _actionsDragOrigT + dy), pr.height - elH);
+    actionGroupEl.style.left = newLeft + 'px';
+    actionGroupEl.style.top  = newTop  + 'px';
+    actionGroupEl.style.right = 'auto';
+    _actionsPosX = newLeft / pr.width;
+    _actionsPosY = newTop  / pr.height;
 }
 
-function onWFSBtnDragEnd(e) {
-    document.removeEventListener('mousemove', onWFSBtnDragMove);
-    document.removeEventListener('mouseup',   onWFSBtnDragEnd);
-    wfsBtnEl.classList.remove('yt-cm-wfs-dragging');
-    if (!_wfsDragging) {
-        toggleWFS();   // short tap = toggle
+function onActionsDragEnd() {
+    document.removeEventListener('mousemove', onActionsDragMove);
+    document.removeEventListener('mouseup',   onActionsDragEnd);
+    actionGroupEl?.classList.remove('yt-cm-actions-dragging');
+    if (!_actionsDragging) {
+        if (_actionsClickTarget && _actionsClickTarget.closest('#yt-cm-playlist-btn')) {
+            if (isWFS) togglePlaylistDrawer();
+        } else if (_actionsClickTarget && _actionsClickTarget.closest('#yt-cm-wfs-btn')) {
+            toggleWFS();
+        }
     } else {
-        saveWFSBtnPosition();
+        saveActionsPosition();
     }
-    _wfsDragging = false;
+    _actionsDragging = false;
+    _actionsClickTarget = null;
 }
 
-function onWFSBtnDragStart(e) {
+function onActionsDragStart(e) {
+    if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    _wfsDragStartX = e.clientX;
-    _wfsDragStartY = e.clientY;
-    _wfsDragOrigL  = parseInt(wfsBtnEl.style.left) || wfsBtnEl.offsetLeft;
-    _wfsDragOrigT  = parseInt(wfsBtnEl.style.top)  || wfsBtnEl.offsetTop;
-    _wfsDragging   = false;
-    document.addEventListener('mousemove', onWFSBtnDragMove);
-    document.addEventListener('mouseup',   onWFSBtnDragEnd);
+    _actionsClickTarget = e.target;
+    _actionsDragStartX  = e.clientX;
+    _actionsDragStartY  = e.clientY;
+    _actionsDragOrigL   = parseInt(actionGroupEl.style.left) || actionGroupEl.offsetLeft;
+    _actionsDragOrigT   = parseInt(actionGroupEl.style.top)  || actionGroupEl.offsetTop;
+    _actionsDragging    = false;
+    document.addEventListener('mousemove', onActionsDragMove);
+    document.addEventListener('mouseup',   onActionsDragEnd);
 }
 
 function updateWFSBtn() {
@@ -529,47 +640,7 @@ function updateWFSBtn() {
     wfsBtnEl.title = isWFS ? 'Exit Windowed Fullscreen (` or Esc) · Drag to move' : 'Windowed Fullscreen (`) · Drag to move';
 }
 
-function onWFSBtnResize() { applyWFSBtnPosition(); }
-
-function injectWFSBtn() {
-    if (!playerEl) return;
-    if (!location.pathname.startsWith('/watch')) return;
-
-    // Re-use existing element if already inside player
-    if (document.getElementById('yt-cm-wfs-btn')) {
-        wfsBtnEl = document.getElementById('yt-cm-wfs-btn');
-        updateWFSBtn();
-        requestAnimationFrame(applyWFSBtnPosition);
-        return;
-    }
-
-    wfsBtnEl = document.createElement('button');
-    wfsBtnEl.id = 'yt-cm-wfs-btn';
-    wfsBtnEl.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <polyline points="9 21 3 21 3 15"></polyline>
-            <line x1="21" y1="3" x2="14" y2="10"></line>
-            <line x1="3" y1="21" x2="10" y2="14"></line>
-        </svg>
-    `;
-    wfsBtnEl.addEventListener('mousedown', onWFSBtnDragStart);
-    playerEl.appendChild(wfsBtnEl);
-    updateWFSBtn();
-    requestAnimationFrame(() => { applyWFSBtnPosition(); });
-    window.addEventListener('resize', onWFSBtnResize, { passive: true });
-}
-
-// ── Feature 9: WFS Floating Playlist Button & Drawer ──────────────────────────
-let plBtnEl               = null;
-let _plPosX               = 0.91;   // default: near top-right, next to WFS button
-let _plPosY               = 0.02;
-let _plDragStartX         = 0, _plDragStartY = 0;
-let _plDragOrigL          = 0, _plDragOrigT  = 0;
-let _plDragging           = false;
-let isPlaylistDrawerOpen  = false;
-let _origPlParent         = null;
-let _origPlNextSibling    = null;
+function onActionsResize() { applyActionsPosition(); }
 
 function hasActivePlaylist() {
     if (!location.pathname.startsWith('/watch')) return false;
@@ -579,73 +650,87 @@ function hasActivePlaylist() {
     return !!(pl && !pl.hasAttribute('hidden') && pl.style.display !== 'none');
 }
 
-function applyPlBtnPosition() {
-    if (!plBtnEl || !playerEl) return;
-    const pr  = playerEl.getBoundingClientRect();
-    const elW = plBtnEl.offsetWidth  || 28;
-    const elH = plBtnEl.offsetHeight || 28;
-    const left = Math.min(Math.max(0, _plPosX * pr.width),  pr.width  - elW);
-    const top  = Math.min(Math.max(0, _plPosY * pr.height), pr.height - elH);
-    plBtnEl.style.left = left + 'px';
-    plBtnEl.style.top  = top  + 'px';
-}
-
-function savePlBtnPosition() {
-    chrome.storage.local.set({ plBtnPosX: _plPosX, plBtnPosY: _plPosY });
-}
-
-function onPlBtnDragMove(e) {
-    const dx = e.clientX - _plDragStartX;
-    const dy = e.clientY - _plDragStartY;
-    if (!_plDragging && Math.hypot(dx, dy) < WFS_DRAG_THRESHOLD) return;
-    _plDragging = true;
-    plBtnEl.classList.add('yt-cm-playlist-dragging');
-    const pr  = playerEl.getBoundingClientRect();
-    const elW = plBtnEl.offsetWidth;
-    const elH = plBtnEl.offsetHeight;
-    const newLeft = Math.min(Math.max(0, _plDragOrigL + dx), pr.width  - elW);
-    const newTop  = Math.min(Math.max(0, _plDragOrigT + dy), pr.height - elH);
-    plBtnEl.style.left = newLeft + 'px';
-    plBtnEl.style.top  = newTop  + 'px';
-    _plPosX = newLeft / pr.width;
-    _plPosY = newTop  / pr.height;
-}
-
-function onPlBtnDragEnd(e) {
-    document.removeEventListener('mousemove', onPlBtnDragMove);
-    document.removeEventListener('mouseup',   onPlBtnDragEnd);
-    plBtnEl.classList.remove('yt-cm-playlist-dragging');
-    if (!_plDragging) {
-        togglePlaylistDrawer();
+function updatePlaylistBtnVisibility() {
+    if (!plBtnEl) return;
+    const shouldShow = isWFS && hasActivePlaylist();
+    plBtnEl.classList.toggle('yt-cm-playlist-visible', shouldShow);
+    if (!shouldShow) {
+        plBtnEl.style.setProperty('display', 'none', 'important');
+        if (isPlaylistDrawerOpen) {
+            closePlaylistDrawer();
+        }
     } else {
-        savePlBtnPosition();
+        plBtnEl.style.setProperty('display', 'inline-flex', 'important');
     }
-    _plDragging = false;
+    requestAnimationFrame(applyActionsPosition);
 }
 
-function onPlBtnDragStart(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    _plDragStartX = e.clientX;
-    _plDragStartY = e.clientY;
-    _plDragOrigL  = parseInt(plBtnEl.style.left) || plBtnEl.offsetLeft;
-    _plDragOrigT  = parseInt(plBtnEl.style.top)  || plBtnEl.offsetTop;
-    _plDragging   = false;
-    document.addEventListener('mousemove', onPlBtnDragMove);
-    document.addEventListener('mouseup',   onPlBtnDragEnd);
+function ensureActionGroupEl() {
+    if (!actionGroupEl || !document.contains(actionGroupEl)) {
+        actionGroupEl = document.getElementById('yt-cm-action-group');
+        if (!actionGroupEl && playerEl) {
+            actionGroupEl = document.createElement('div');
+            actionGroupEl.id = 'yt-cm-action-group';
+
+            plBtnEl = document.createElement('button');
+            plBtnEl.id = 'yt-cm-playlist-btn';
+            plBtnEl.className = 'yt-cm-action-btn';
+            plBtnEl.title = 'Current Playlist · Drag to move';
+            plBtnEl.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="15" y2="12"></line>
+                    <line x1="3" y1="18" x2="15" y2="18"></line>
+                    <polygon points="17 12 21 15 17 18 17 12" fill="currentColor"></polygon>
+                </svg>
+            `;
+            actionGroupEl.appendChild(plBtnEl);
+
+            wfsBtnEl = document.createElement('button');
+            wfsBtnEl.id = 'yt-cm-wfs-btn';
+            wfsBtnEl.className = 'yt-cm-action-btn';
+            wfsBtnEl.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                </svg>
+            `;
+            actionGroupEl.appendChild(wfsBtnEl);
+
+            actionGroupEl.addEventListener('mousedown', onActionsDragStart);
+            playerEl.appendChild(actionGroupEl);
+        } else if (actionGroupEl) {
+            plBtnEl  = actionGroupEl.querySelector('#yt-cm-playlist-btn');
+            wfsBtnEl = actionGroupEl.querySelector('#yt-cm-wfs-btn');
+        }
+    }
+    return actionGroupEl;
 }
 
-function onPlBtnResize() { applyPlBtnPosition(); }
+function injectActionGroup() {
+    if (!playerEl) return;
+    if (!location.pathname.startsWith('/watch')) return;
+
+    ensureActionGroupEl();
+    updateWFSBtn();
+    updatePlaylistBtnVisibility();
+    requestAnimationFrame(applyActionsPosition);
+    window.removeEventListener('resize', onActionsResize);
+    window.addEventListener('resize', onActionsResize, { passive: true });
+}
 
 function onPlaylistOutsideClick(e) {
     if (!isPlaylistDrawerOpen) return;
-    if (plBtnEl && plBtnEl.contains(e.target)) return;
+    if (actionGroupEl && actionGroupEl.contains(e.target)) return;
     const drawer = document.querySelector('ytd-playlist-panel-renderer.yt-cm-playlist-drawer');
     if (drawer && drawer.contains(e.target)) return;
     closePlaylistDrawer();
 }
 
 function openPlaylistDrawer() {
+    if (!isWFS) return;
     const panel = document.querySelector('ytd-playlist-panel-renderer');
     if (!panel || !playerEl) return;
 
@@ -659,6 +744,9 @@ function openPlaylistDrawer() {
     panel.removeAttribute('hidden');
     isPlaylistDrawerOpen = true;
 
+    if (actionGroupEl) {
+        actionGroupEl.classList.add('yt-cm-playlist-active');
+    }
     if (plBtnEl) {
         plBtnEl.classList.add('yt-cm-playlist-active');
         plBtnEl.title = 'Close Playlist · Drag to move';
@@ -710,6 +798,9 @@ function closePlaylistDrawer() {
     }
 
     isPlaylistDrawerOpen = false;
+    if (actionGroupEl) {
+        actionGroupEl.classList.remove('yt-cm-playlist-active');
+    }
     if (plBtnEl) {
         plBtnEl.classList.remove('yt-cm-playlist-active');
         plBtnEl.title = 'Current Playlist · Drag to move';
@@ -717,47 +808,8 @@ function closePlaylistDrawer() {
 }
 
 function togglePlaylistDrawer() {
+    if (!isWFS) return;
     isPlaylistDrawerOpen ? closePlaylistDrawer() : openPlaylistDrawer();
-}
-
-function updatePlaylistBtnVisibility() {
-    if (!plBtnEl) return;
-    const shouldShow = isWFS && hasActivePlaylist();
-    plBtnEl.style.display = shouldShow ? 'flex' : 'none';
-    if (shouldShow) {
-        applyPlBtnPosition();
-    } else if (isPlaylistDrawerOpen) {
-        closePlaylistDrawer();
-    }
-}
-
-function injectPlaylistBtn() {
-    if (!playerEl) return;
-    if (!location.pathname.startsWith('/watch')) return;
-
-    if (document.getElementById('yt-cm-playlist-btn')) {
-        plBtnEl = document.getElementById('yt-cm-playlist-btn');
-        updatePlaylistBtnVisibility();
-        requestAnimationFrame(applyPlBtnPosition);
-        return;
-    }
-
-    plBtnEl = document.createElement('button');
-    plBtnEl.id = 'yt-cm-playlist-btn';
-    plBtnEl.title = 'Current Playlist · Drag to move';
-    plBtnEl.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="12" x2="15" y2="12"></line>
-            <line x1="3" y1="18" x2="15" y2="18"></line>
-            <polygon points="17 12 21 15 17 18 17 12" fill="currentColor"></polygon>
-        </svg>
-    `;
-    plBtnEl.addEventListener('mousedown', onPlBtnDragStart);
-    playerEl.appendChild(plBtnEl);
-    updatePlaylistBtnVisibility();
-    requestAnimationFrame(() => { applyPlBtnPosition(); });
-    window.addEventListener('resize', onPlBtnResize, { passive: true });
 }
 
 // ── 3. Feature 3: Cinema Mode ─────────────────────────────────────────────────
@@ -886,37 +938,53 @@ function toggleProgressBar() {
     chrome.storage.local.set({ progressBar: isProgressBarVisible });
 }
 
-// ── Feature 4: Timestamp Overlay ─────────────────────────────────────────────
+// ── Features 4, 7 & 10: Unified HUD Unit (Timestamp · Speed · Quality) ──────────
 let isTimestampVisible  = true;
 let isShowingRemaining  = false;   // false = current/total, true = remaining/total
-let timestampEl         = null;
+let isSpeedVisible      = false;
+let isQualityVisible    = true;
 
-// ── Drag state ────────────────────────────────────────────────────────────────
-let _dragStartX   = 0, _dragStartY   = 0;
-let _dragOrigLeft = 0, _dragOrigTop  = 0;
-let _dragging     = false;
-const DRAG_THRESHOLD = 4;  // px — below this = treated as a click
+let hudEl        = null;
+let hudTimeEl    = null;
+let hudSpeedEl   = null;
+let hudQualityEl = null;
 
-// Position stored as fractions of player size (0.0–1.0) for resize-consistency
-let _tsPosX = 0.01;   // default: near left
-let _tsPosY = 0.03;   // default: near top
+let qualityMenuEl       = null;
+let isQualityMenuOpen   = false;
+let _currentQualityRaw  = null;
+let _qualityLabel       = '';
+let _availableQualities = [];
 
-function applyTsPosition() {
-    if (!timestampEl || !playerEl) return;
+// Drag state for unified HUD unit
+let _hudDragStartX  = 0, _hudDragStartY  = 0;
+let _hudDragOrigL   = 0, _hudDragOrigT   = 0;
+let _hudDragging    = false;
+let _hudClickTarget = null;
+const DRAG_THRESHOLD = 4;
+
+// Position as fractions of player size (0.0–1.0)
+let _hudPosX = 0.01;
+let _hudPosY = 0.03;
+
+function applyHudPosition() {
+    if (!hudEl || !playerEl) return;
     const pr  = playerEl.getBoundingClientRect();
-    const elW = timestampEl.offsetWidth  || 0;
-    const elH = timestampEl.offsetHeight || 0;
-    const left = Math.min(Math.max(0, _tsPosX * pr.width),  pr.width  - elW);
-    const top  = Math.min(Math.max(0, _tsPosY * pr.height), pr.height - elH);
-    timestampEl.style.left = left + 'px';
-    timestampEl.style.top  = top  + 'px';
+    const elW = hudEl.offsetWidth  || 0;
+    const elH = hudEl.offsetHeight || 0;
+    const left = Math.min(Math.max(0, _hudPosX * pr.width),  pr.width  - elW);
+    const top  = Math.min(Math.max(0, _hudPosY * pr.height), pr.height - elH);
+    hudEl.style.left = left + 'px';
+    hudEl.style.top  = top  + 'px';
+    if (isQualityMenuOpen) positionQualityMenu();
 }
 
-function saveTsPosition() {
-    chrome.storage.local.set({ tsPosX: _tsPosX, tsPosY: _tsPosY });
+function saveHudPosition() {
+    chrome.storage.local.set({ hudPosX: _hudPosX, hudPosY: _hudPosY });
 }
 
-function onTsResize() { applyTsPosition(); }
+function onHudResize() {
+    applyHudPosition();
+}
 
 function formatTime(secs) {
     if (!isFinite(secs) || secs < 0) return '--:--';
@@ -933,220 +1001,387 @@ function getVideo() {
     return document.querySelector('#movie_player video');
 }
 
-function ensureTimestampEl() {
-    if (!timestampEl || !document.contains(timestampEl)) {
-        timestampEl = document.getElementById('yt-cm-timestamp');
-        if (!timestampEl && playerEl) {
-            timestampEl = document.createElement('div');
-            timestampEl.id = 'yt-cm-timestamp';
-            playerEl.appendChild(timestampEl);
-        }
-    }
-    return timestampEl;
-}
-
 function onTimeUpdate() {
-    const el = ensureTimestampEl();
-    if (!el) return;
+    if (!hudTimeEl) return;
     const v = getVideo();
-    if (!v) { el.textContent = '--:-- / --:--'; return; }
+    if (!v) { hudTimeEl.textContent = '--:-- / --:--'; return; }
     if (isShowingRemaining) {
         const remaining = v.duration - v.currentTime;
-        el.textContent = isFinite(remaining)
+        hudTimeEl.textContent = isFinite(remaining)
             ? `-${formatTime(remaining)} / ${formatTime(v.duration)}`
             : '--:-- / --:--';
     } else {
-        el.textContent = `${formatTime(v.currentTime)} / ${formatTime(v.duration)}`;
+        hudTimeEl.textContent = `${formatTime(v.currentTime)} / ${formatTime(v.duration)}`;
     }
 }
 
-// ── Drag handlers ─────────────────────────────────────────────────────────────
-function onTsDragMove(e) {
-    const dx = e.clientX - _dragStartX;
-    const dy = e.clientY - _dragStartY;
-    if (!_dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    _dragging = true;
-    timestampEl.classList.add('yt-cm-dragging');
-
-    const pr = playerEl.getBoundingClientRect();
-    const elW = timestampEl.offsetWidth;
-    const elH = timestampEl.offsetHeight;
-
-    const newLeft = Math.min(Math.max(0, _dragOrigLeft + dx), pr.width  - elW);
-    const newTop  = Math.min(Math.max(0, _dragOrigTop  + dy), pr.height - elH);
-
-    timestampEl.style.left = newLeft + 'px';
-    timestampEl.style.top  = newTop  + 'px';
-
-    // Keep fractions in sync during drag so resize listener is always accurate
-    _tsPosX = newLeft / pr.width;
-    _tsPosY = newTop  / pr.height;
+function updateSpeedDisplay() {
+    if (!hudSpeedEl) return;
+    const v = getVideo();
+    const rate = v ? v.playbackRate : 1;
+    hudSpeedEl.textContent = rate === 1 ? '1×' : `${parseFloat(rate.toFixed(2))}×`;
 }
 
-function onTsDragEnd(e) {
-    document.removeEventListener('mousemove', onTsDragMove);
-    document.removeEventListener('mouseup',   onTsDragEnd);
-    if (!_dragging) {
-        // Short movement = click → toggle display mode
-        isShowingRemaining = !isShowingRemaining;
-        onTimeUpdate();
+function onSpeedChange() {
+    updateSpeedDisplay();
+}
+
+function getResolutionFromVideo(v) {
+    if (!v || !v.videoWidth || !v.videoHeight) return null;
+    const w = v.videoWidth;
+    const h = v.videoHeight;
+    const isVertical = h > w;
+    const effH = isVertical ? w : Math.max(h, Math.round(w * 9 / 16));
+    if (effH >= 4320) return { label: '4320p 8K', isHd: true, height: 4320 };
+    if (effH >= 2160) return { label: '2160p 4K', isHd: true, height: 2160 };
+    if (effH >= 1440) return { label: '1440p',    isHd: true, height: 1440 };
+    if (effH >= 1080) return { label: '1080p',    isHd: true, height: 1080 };
+    if (effH >= 720)  return { label: '720p',     isHd: true, height: 720 };
+    if (effH >= 480)  return { label: '480p',     isHd: false, height: 480 };
+    if (effH >= 360)  return { label: '360p',     isHd: false, height: 360 };
+    if (effH >= 240)  return { label: '240p',     isHd: false, height: 240 };
+    if (effH >= 144)  return { label: '144p',     isHd: false, height: 144 };
+    return { label: `${h}p`, isHd: h >= 720, height: h };
+}
+
+function updateQualityDisplay() {
+    if (!hudQualityEl) return;
+    const v = getVideo();
+    let displayLabel = _qualityLabel;
+    let isHd = false;
+
+    if (!displayLabel) {
+        const res = getResolutionFromVideo(v);
+        if (res) {
+            displayLabel = res.label;
+            isHd = res.isHd;
+        } else {
+            displayLabel = '--';
+        }
     } else {
-        saveTsPosition();   // persist final resting position
+        isHd = /1080|1440|2160|4k|8k|hd/i.test(displayLabel);
     }
-    _dragging = false;
+
+    let badgeText = '';
+    if (/8k/i.test(displayLabel)) {
+        badgeText = '8K';
+    } else if (/4k/i.test(displayLabel)) {
+        badgeText = '4K';
+    } else if (isHd) {
+        badgeText = 'HD';
+    }
+
+    hudQualityEl.textContent = '';
+    const textSpan = document.createElement('span');
+    textSpan.textContent = displayLabel.replace(/\s*(4k|8k|hd)\s*/gi, '').trim() || displayLabel;
+    hudQualityEl.appendChild(textSpan);
+
+    if (badgeText) {
+        const badge = document.createElement('span');
+        badge.className = 'yt-cm-hd-badge';
+        badge.textContent = badgeText;
+        hudQualityEl.appendChild(badge);
+    }
+
+    applyHudPosition();
 }
 
-function onTsDragStart(e) {
+function onVideoQualityResize() {
+    updateQualityDisplay();
+}
+
+function positionQualityMenu() {
+    if (!qualityMenuEl || !hudEl || !playerEl) return;
+    const pr = playerEl.getBoundingClientRect();
+    const hr = hudEl.getBoundingClientRect();
+    const mr = qualityMenuEl.getBoundingClientRect();
+
+    let left = hr.left - pr.left;
+    let top  = hr.bottom - pr.top + 6;
+
+    if (left + mr.width > pr.width - 8) {
+        left = pr.width - mr.width - 8;
+    }
+    if (left < 8) left = 8;
+    if (top + mr.height > pr.height - 8) {
+        top = (hr.top - pr.top) - mr.height - 6;
+    }
+    if (top < 8) top = 8;
+
+    qualityMenuEl.style.left = left + 'px';
+    qualityMenuEl.style.top  = top  + 'px';
+}
+
+function openQualityMenu() {
+    if (!playerEl || !hudQualityEl) return;
+    closeQualityMenu();
+
+    qualityMenuEl = document.createElement('div');
+    qualityMenuEl.id = 'yt-cm-quality-menu';
+
+    const header = document.createElement('div');
+    header.className = 'yt-cm-quality-header';
+    header.textContent = 'Quality';
+    qualityMenuEl.appendChild(header);
+
+    let options = _availableQualities;
+    if (!options || options.length === 0) {
+        options = [
+            { quality: 'auto',   qualityLabel: 'Auto' },
+            { quality: 'hd2160', qualityLabel: '2160p (4K)', isHd: true },
+            { quality: 'hd1440', qualityLabel: '1440p',      isHd: true },
+            { quality: 'hd1080', qualityLabel: '1080p',      isHd: true },
+            { quality: 'hd720',  qualityLabel: '720p',       isHd: true },
+            { quality: 'large',   qualityLabel: '480p' },
+            { quality: 'medium',  qualityLabel: '360p' },
+            { quality: 'small',   qualityLabel: '240p' },
+            { quality: 'tiny',    qualityLabel: '144p' }
+        ];
+    }
+
+    const currentQ = (_currentQualityRaw || '').toLowerCase();
+    const currentLabel = (hudQualityEl?.textContent || '').toLowerCase();
+
+    options.forEach(opt => {
+        const item = document.createElement('div');
+        item.className = 'yt-cm-quality-item';
+
+        const isCurrent = (opt.quality && opt.quality.toLowerCase() === currentQ) ||
+                          (opt.qualityLabel && currentLabel.includes(opt.qualityLabel.toLowerCase().replace(/[^0-9a-z]/g, '')));
+
+        if (isCurrent) item.classList.add('yt-cm-quality-item-active');
+
+        const checkIcon = document.createElement('span');
+        checkIcon.className = 'yt-cm-quality-check';
+        checkIcon.innerHTML = isCurrent
+            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>`
+            : '';
+        item.appendChild(checkIcon);
+
+        const label = document.createElement('span');
+        label.className = 'yt-cm-quality-item-label';
+        label.textContent = opt.qualityLabel || opt.quality;
+        item.appendChild(label);
+
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            changeQuality(opt.quality, opt.qualityLabel);
+            closeQualityMenu();
+        });
+
+        qualityMenuEl.appendChild(item);
+    });
+
+    playerEl.appendChild(qualityMenuEl);
+    isQualityMenuOpen = true;
+    hudQualityEl?.classList.add('yt-cm-quality-active');
+    requestAnimationFrame(() => positionQualityMenu());
+
+    setTimeout(() => {
+        document.addEventListener('click', onQualityOutsideClick);
+    }, 0);
+}
+
+function closeQualityMenu() {
+    if (qualityMenuEl) {
+        qualityMenuEl.remove();
+        qualityMenuEl = null;
+    }
+    isQualityMenuOpen = false;
+    hudQualityEl?.classList.remove('yt-cm-quality-active');
+    document.removeEventListener('click', onQualityOutsideClick);
+}
+
+function onQualityOutsideClick(e) {
+    if (!qualityMenuEl) return;
+    if (hudQualityEl && hudQualityEl.contains(e.target)) return;
+    if (qualityMenuEl.contains(e.target)) return;
+    closeQualityMenu();
+}
+
+function toggleQualityMenu() {
+    isQualityMenuOpen ? closeQualityMenu() : openQualityMenu();
+}
+
+function changeQuality(qualityKey, qualityLabel) {
+    if (qualityLabel) {
+        _qualityLabel = qualityLabel;
+        updateQualityDisplay();
+    }
+    _currentQualityRaw = qualityKey;
+
+    window.postMessage({
+        source: 'YT_CLEAN_MODE_CONTENT',
+        action: 'SET_QUALITY',
+        quality: qualityKey
+    }, '*');
+}
+
+function onHudDragStart(e) {
+    if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    _dragStartX  = e.clientX;
-    _dragStartY  = e.clientY;
-    _dragOrigLeft = parseInt(timestampEl.style.left) || timestampEl.offsetLeft;
-    _dragOrigTop  = parseInt(timestampEl.style.top)  || timestampEl.offsetTop;
-    _dragging    = false;
-    document.addEventListener('mousemove', onTsDragMove);
-    document.addEventListener('mouseup',   onTsDragEnd);
+    _hudClickTarget = e.target;
+    _hudDragStartX = e.clientX;
+    _hudDragStartY = e.clientY;
+    _hudDragOrigL  = parseInt(hudEl.style.left) || hudEl.offsetLeft;
+    _hudDragOrigT  = parseInt(hudEl.style.top)  || hudEl.offsetTop;
+    _hudDragging   = false;
+    document.addEventListener('mousemove', onHudDragMove);
+    document.addEventListener('mouseup',   onHudDragEnd);
 }
 
-function showTimestamp() {
-    const el = ensureTimestampEl();
+function onHudDragMove(e) {
+    const dx = e.clientX - _hudDragStartX;
+    const dy = e.clientY - _hudDragStartY;
+    if (!_hudDragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    _hudDragging = true;
+    hudEl.classList.add('yt-cm-dragging');
+    const pr  = playerEl.getBoundingClientRect();
+    const elW = hudEl.offsetWidth;
+    const elH = hudEl.offsetHeight;
+    const newLeft = Math.min(Math.max(0, _hudDragOrigL + dx), pr.width  - elW);
+    const newTop  = Math.min(Math.max(0, _hudDragOrigT + dy), pr.height - elH);
+    hudEl.style.left = newLeft + 'px';
+    hudEl.style.top  = newTop  + 'px';
+    _hudPosX = newLeft / pr.width;
+    _hudPosY = newTop  / pr.height;
+    if (isQualityMenuOpen) positionQualityMenu();
+}
+
+function onHudDragEnd() {
+    document.removeEventListener('mousemove', onHudDragMove);
+    document.removeEventListener('mouseup',   onHudDragEnd);
+    hudEl?.classList.remove('yt-cm-dragging');
+    if (!_hudDragging) {
+        if (_hudClickTarget && _hudClickTarget.closest('#yt-cm-hud-time')) {
+            isShowingRemaining = !isShowingRemaining;
+            onTimeUpdate();
+        } else if (_hudClickTarget && _hudClickTarget.closest('#yt-cm-hud-quality')) {
+            toggleQualityMenu();
+        }
+    } else {
+        saveHudPosition();
+    }
+    _hudDragging = false;
+    _hudClickTarget = null;
+}
+
+function ensureHudEl() {
+    if (!hudEl || !document.contains(hudEl)) {
+        hudEl = document.getElementById('yt-cm-hud');
+        if (!hudEl && playerEl) {
+            hudEl = document.createElement('div');
+            hudEl.id = 'yt-cm-hud';
+
+            hudTimeEl = document.createElement('div');
+            hudTimeEl.id = 'yt-cm-hud-time';
+            hudTimeEl.className = 'yt-cm-hud-item';
+            hudTimeEl.title = 'Click to toggle remaining time';
+            hudEl.appendChild(hudTimeEl);
+
+            hudSpeedEl = document.createElement('div');
+            hudSpeedEl.id = 'yt-cm-hud-speed';
+            hudSpeedEl.className = 'yt-cm-hud-item';
+            hudSpeedEl.title = 'Playback speed';
+            hudEl.appendChild(hudSpeedEl);
+
+            hudQualityEl = document.createElement('div');
+            hudQualityEl.id = 'yt-cm-hud-quality';
+            hudQualityEl.className = 'yt-cm-hud-item';
+            hudQualityEl.title = 'Video quality (click to select)';
+            hudEl.appendChild(hudQualityEl);
+
+            hudEl.addEventListener('mousedown', onHudDragStart);
+            playerEl.appendChild(hudEl);
+        } else if (hudEl) {
+            hudTimeEl    = hudEl.querySelector('#yt-cm-hud-time');
+            hudSpeedEl   = hudEl.querySelector('#yt-cm-hud-speed');
+            hudQualityEl = hudEl.querySelector('#yt-cm-hud-quality');
+        }
+    }
+    return hudEl;
+}
+
+function updateHudVisibility() {
+    const el = ensureHudEl();
     if (!el) return;
-    el.classList.add('yt-cm-ts-visible');
-    // Apply position after element is visible so offsetWidth is accurate
-    requestAnimationFrame(() => { applyTsPosition(); onTimeUpdate(); });
-    getVideo()?.addEventListener('timeupdate', onTimeUpdate);
-    el.addEventListener('mousedown', onTsDragStart);
-    window.addEventListener('resize', onTsResize, { passive: true });
-}
 
-function hideTimestamp() {
-    timestampEl?.classList.remove('yt-cm-ts-visible');
-    timestampEl?.removeEventListener('mousedown', onTsDragStart);
-    document.removeEventListener('mousemove', onTsDragMove);
-    document.removeEventListener('mouseup',   onTsDragEnd);
-    window.removeEventListener('resize', onTsResize);
-    getVideo()?.removeEventListener('timeupdate', onTimeUpdate);
+    const showTime    = isTimestampVisible;
+    const showSpeed   = isSpeedVisible;
+    const showQuality = isWFS && isQualityVisible;
+
+    if (hudTimeEl)    hudTimeEl.style.display    = showTime ? 'inline-flex' : 'none';
+    if (hudSpeedEl)   hudSpeedEl.style.display   = showSpeed ? 'inline-flex' : 'none';
+    if (hudQualityEl) hudQualityEl.style.display = showQuality ? 'inline-flex' : 'none';
+
+    const anyVisible = showTime || showSpeed || showQuality;
+    el.classList.toggle('yt-cm-hud-visible', anyVisible);
+
+    if (anyVisible) {
+        requestAnimationFrame(() => {
+            applyHudPosition();
+            onTimeUpdate();
+            updateSpeedDisplay();
+            updateQualityDisplay();
+        });
+        const v = getVideo();
+        v?.removeEventListener('timeupdate', onTimeUpdate);
+        v?.addEventListener('timeupdate', onTimeUpdate);
+        v?.removeEventListener('ratechange', onSpeedChange);
+        v?.addEventListener('ratechange', onSpeedChange);
+        v?.removeEventListener('resize', onVideoQualityResize);
+        v?.addEventListener('resize', onVideoQualityResize);
+        v?.removeEventListener('loadedmetadata', onVideoQualityResize);
+        v?.addEventListener('loadedmetadata', onVideoQualityResize);
+        window.removeEventListener('resize', onHudResize);
+        window.addEventListener('resize', onHudResize, { passive: true });
+        window.postMessage({ source: 'YT_CLEAN_MODE_CONTENT', action: 'GET_QUALITY' }, '*');
+    } else {
+        closeQualityMenu();
+    }
 }
 
 function toggleTimestamp() {
     isTimestampVisible = !isTimestampVisible;
-    isTimestampVisible ? showTimestamp() : hideTimestamp();
     chrome.storage.local.set({ timestamp: isTimestampVisible });
-}
-
-// ── Feature 7: Speed Indicator ───────────────────────────────────────────────
-let isSpeedVisible = false;
-let speedEl        = null;
-
-// Drag state
-let _spDragStartX = 0, _spDragStartY = 0;
-let _spDragOrigL  = 0, _spDragOrigT  = 0;
-let _spDragging   = false;
-
-// Position as fractions of player size
-let _spPosX = 0.08;   // default: near left, below timestamp
-let _spPosY = 0.03;
-
-function applySpPosition() {
-    if (!speedEl || !playerEl) return;
-    const pr  = playerEl.getBoundingClientRect();
-    const elW = speedEl.offsetWidth  || 0;
-    const elH = speedEl.offsetHeight || 0;
-    const left = Math.min(Math.max(0, _spPosX * pr.width),  pr.width  - elW);
-    const top  = Math.min(Math.max(0, _spPosY * pr.height), pr.height - elH);
-    speedEl.style.left = left + 'px';
-    speedEl.style.top  = top  + 'px';
-}
-
-function saveSpPosition() {
-    chrome.storage.local.set({ spPosX: _spPosX, spPosY: _spPosY });
-}
-
-function updateSpeedDisplay() {
-    if (!speedEl) return;
-    const v = getVideo();
-    const rate = v ? v.playbackRate : 1;
-    speedEl.textContent = rate === 1 ? '1×' : `${parseFloat(rate.toFixed(2))}×`;
-}
-
-function onSpeedChange() { updateSpeedDisplay(); }
-function onSpResize()    { applySpPosition(); }
-
-function ensureSpeedEl() {
-    if (!speedEl || !document.contains(speedEl)) {
-        speedEl = document.getElementById('yt-cm-speed');
-        if (!speedEl && playerEl) {
-            speedEl = document.createElement('div');
-            speedEl.id = 'yt-cm-speed';
-            playerEl.appendChild(speedEl);
-        }
-    }
-    return speedEl;
-}
-
-function onSpDragMove(e) {
-    const dx = e.clientX - _spDragStartX;
-    const dy = e.clientY - _spDragStartY;
-    if (!_spDragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    _spDragging = true;
-    const pr  = playerEl.getBoundingClientRect();
-    const elW = speedEl.offsetWidth;
-    const elH = speedEl.offsetHeight;
-    const newLeft = Math.min(Math.max(0, _spDragOrigL + dx), pr.width  - elW);
-    const newTop  = Math.min(Math.max(0, _spDragOrigT + dy), pr.height - elH);
-    speedEl.style.left = newLeft + 'px';
-    speedEl.style.top  = newTop  + 'px';
-    _spPosX = newLeft / pr.width;
-    _spPosY = newTop  / pr.height;
-}
-
-function onSpDragEnd() {
-    document.removeEventListener('mousemove', onSpDragMove);
-    document.removeEventListener('mouseup',   onSpDragEnd);
-    if (!_spDragging) {
-        // tap = no action (speed display is read-only)
-    } else {
-        saveSpPosition();
-    }
-    _spDragging = false;
-}
-
-function onSpDragStart(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    _spDragStartX = e.clientX;
-    _spDragStartY = e.clientY;
-    _spDragOrigL  = parseInt(speedEl.style.left) || speedEl.offsetLeft;
-    _spDragOrigT  = parseInt(speedEl.style.top)  || speedEl.offsetTop;
-    _spDragging   = false;
-    document.addEventListener('mousemove', onSpDragMove);
-    document.addEventListener('mouseup',   onSpDragEnd);
-}
-
-function showSpeed() {
-    const el = ensureSpeedEl();
-    if (!el) return;
-    el.classList.add('yt-cm-sp-visible');
-    requestAnimationFrame(() => { applySpPosition(); updateSpeedDisplay(); });
-    getVideo()?.addEventListener('ratechange', onSpeedChange);
-    el.addEventListener('mousedown', onSpDragStart);
-    window.addEventListener('resize', onSpResize, { passive: true });
-}
-
-function hideSpeed() {
-    speedEl?.classList.remove('yt-cm-sp-visible');
-    speedEl?.removeEventListener('mousedown', onSpDragStart);
-    document.removeEventListener('mousemove', onSpDragMove);
-    document.removeEventListener('mouseup',   onSpDragEnd);
-    window.removeEventListener('resize', onSpResize);
-    getVideo()?.removeEventListener('ratechange', onSpeedChange);
+    updateHudVisibility();
 }
 
 function toggleSpeed() {
     isSpeedVisible = !isSpeedVisible;
-    isSpeedVisible ? showSpeed() : hideSpeed();
     chrome.storage.local.set({ speedIndicator: isSpeedVisible });
+    updateHudVisibility();
 }
+
+function toggleQuality() {
+    isQualityVisible = !isQualityVisible;
+    chrome.storage.local.set({ qualityIndicator: isQualityVisible });
+    updateHudVisibility();
+}
+
+// Listen for messages from main-world.js
+window.addEventListener('message', (event) => {
+    if (event.source !== window || !event.data || event.data.source !== 'YT_CLEAN_MODE_MAIN') return;
+    if (event.data.action === 'QUALITY_UPDATE') {
+        if (event.data.currentQuality) {
+            _currentQualityRaw = event.data.currentQuality;
+        }
+        if (Array.isArray(event.data.qualityData) && event.data.qualityData.length > 0) {
+            _availableQualities = event.data.qualityData;
+            const matched = _availableQualities.find(q => q.quality === _currentQualityRaw);
+            if (matched && matched.qualityLabel) {
+                _qualityLabel = matched.qualityLabel;
+            }
+        } else if (Array.isArray(event.data.qualityLevels) && event.data.qualityLevels.length > 0) {
+            _availableQualities = event.data.qualityLevels.map(lvl => ({
+                quality: lvl,
+                qualityLabel: lvl.replace(/^hd/, '') + (lvl.startsWith('hd') ? 'p HD' : 'p')
+            }));
+        }
+        updateQualityDisplay();
+    }
+});
 
 // Keyboard shortcuts (ignored when typing in an input)
 document.addEventListener('keydown', (e) => {
@@ -1159,6 +1394,7 @@ document.addEventListener('keydown', (e) => {
         if (e.code === 'KeyH')      toggleHideControls();  // H  → Hide Controls
         if (e.code === 'KeyY')      toggleTimestamp();     // Y  → Timestamp Overlay
         if (e.code === 'KeyX')      toggleSpeed();         // X  → Speed Indicator
+        if (e.code === 'KeyV')      toggleQuality();       // V  → Video Quality (WFS)
         if (e.code === 'KeyP')      toggleProgressBar();   // P  → Progress Bar
         if (e.code === 'KeyE') {                           // E  → opacity −5%
             controlOpacity = parseFloat(Math.max(0, controlOpacity - 0.05).toFixed(2));
@@ -1204,12 +1440,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             controlOpacity,
             progressBar:         isProgressBarVisible,
             zoomLevel:           _zoomLevel,
+            qualityVisible:      isQualityVisible,
+            qualityLabel:        _qualityLabel || getResolutionFromVideo(getVideo())?.label || 'Auto',
         });
     }
     else if (msg.action === 'toggleHideControls') { toggleHideControls(); }
     else if (msg.action === 'toggleWindowedFS')   { toggleWFS(); }
     else if (msg.action === 'toggleCinema')        { toggleCinema(); }
     else if (msg.action === 'toggleTimestamp')     { toggleTimestamp(); }
+    else if (msg.action === 'toggleQuality')       { toggleQuality(); }
     else if (msg.action === 'toggleProgressBar')   { toggleProgressBar(); }
     else if (msg.action === 'toggleOpacity') {
         isOpacityEnabled = !isOpacityEnabled;
@@ -1234,16 +1473,15 @@ function findPlayer() {
         playerEl = p;
         if (isCinema) playerEl.classList.add('yt-cm-cinema');
         // Re-attach overlays to new player element if they were visible
-        timestampEl     = null;
+        hudEl           = null;
         progressTrackEl = null;
         progressFillEl  = null;
-        speedEl         = null;
+        actionGroupEl   = null;
+        wfsBtnEl        = null;
         plBtnEl         = null;
-        if (isTimestampVisible)   showTimestamp();
+        updateHudVisibility();
         if (isProgressBarVisible) showProgressBar();
-        if (isSpeedVisible)       showSpeed();
-        injectPlaylistBtn();
-        updatePlaylistBtnVisibility();
+        injectActionGroup();
         return;
     }
     const obs = new MutationObserver(() => {
@@ -1251,16 +1489,15 @@ function findPlayer() {
         if (p2) {
             playerEl = p2;
             if (isCinema) playerEl.classList.add('yt-cm-cinema');
-            timestampEl     = null;
+            hudEl           = null;
             progressTrackEl = null;
             progressFillEl  = null;
-            speedEl         = null;
+            actionGroupEl   = null;
+            wfsBtnEl        = null;
             plBtnEl         = null;
-            if (isTimestampVisible)   showTimestamp();
+            updateHudVisibility();
             if (isProgressBarVisible) showProgressBar();
-            if (isSpeedVisible)       showSpeed();
-            injectPlaylistBtn();
-            updatePlaylistBtnVisibility();
+            injectActionGroup();
             obs.disconnect();
         }
     });
@@ -1327,7 +1564,7 @@ function onZoomPanStart(e) {
     // Only start pan with left button and NOT on controls
     if (e.button !== 0) return;
     // Don't intercept clicks on interactive elements
-    if (e.target.closest('.ytp-chrome-bottom, .ytp-chrome-top, #yt-cm-wfs-btn, #yt-cm-playlist-btn, .yt-cm-playlist-drawer, #yt-cm-timestamp, #yt-cm-speed')) return;
+    if (e.target.closest('.ytp-chrome-bottom, .ytp-chrome-top, #yt-cm-action-group, .yt-cm-playlist-drawer, #yt-cm-hud, #yt-cm-quality-menu')) return;
 
     e.preventDefault();
     _zoomPanning   = true;
@@ -1372,9 +1609,7 @@ function detachZoomListeners() {
 function init() {
     injectStyles();
     findPlayer();
-    injectWFSBtn();
-    injectPlaylistBtn();
-    updatePlaylistBtnVisibility();
+    injectActionGroup();
 }
 
 document.addEventListener('yt-navigate-finish',   init);
@@ -1387,33 +1622,33 @@ chrome.storage.local.get(
         hideControls: true,
         controlOpacity: 1,
         isOpacityEnabled: true,
+        hudPosX: 0.01,
+        hudPosY: 0.03,
         tsPosX: 0.01,
         tsPosY: 0.03,
         progressBar: false,
+        actionsPosX: 0.94,
+        actionsPosY: 0.02,
         wfsBtnPosX: 0.95,
         wfsBtnPosY: 0.02,
         plBtnPosX: 0.91,
         plBtnPosY: 0.02,
         timestamp: true,
         speedIndicator: false,
-        spPosX: 0.08,
-        spPosY: 0.03
+        qualityIndicator: true
     },
     (result) => {
         isHideControlsEnabled = result.hideControls;
         controlOpacity        = result.controlOpacity;
         isOpacityEnabled      = result.isOpacityEnabled;
-        _tsPosX               = result.tsPosX;
-        _tsPosY               = result.tsPosY;
+        _hudPosX              = result.hudPosX !== undefined ? result.hudPosX : (result.tsPosX !== undefined ? result.tsPosX : 0.01);
+        _hudPosY              = result.hudPosY !== undefined ? result.hudPosY : (result.tsPosY !== undefined ? result.tsPosY : 0.03);
+        _actionsPosX          = result.actionsPosX !== undefined ? result.actionsPosX : (result.wfsBtnPosX !== undefined ? result.wfsBtnPosX : 0.94);
+        _actionsPosY          = result.actionsPosY !== undefined ? result.actionsPosY : (result.wfsBtnPosY !== undefined ? result.wfsBtnPosY : 0.02);
         isProgressBarVisible  = result.progressBar;
         isTimestampVisible     = result.timestamp;
         isSpeedVisible         = result.speedIndicator;
-        _spPosX                = result.spPosX;
-        _spPosY                = result.spPosY;
-        _wfsPosX               = result.wfsBtnPosX;
-        _wfsPosY               = result.wfsBtnPosY;
-        _plPosX                = result.plBtnPosX;
-        _plPosY                = result.plBtnPosY;
+        isQualityVisible       = result.qualityIndicator;
         applyOpacity();
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
