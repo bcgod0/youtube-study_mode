@@ -97,7 +97,7 @@ function injectStyles() {
             transition: opacity 0.35s ease !important;
         }
 
-        /* Feature 5: Progress Bar */
+        /* Feature 5: Progress Bar (only in WFS & Cinema mode) */
         #yt-cm-progress-bar-track {
             position: absolute !important;
             bottom: 0 !important;
@@ -107,11 +107,14 @@ function injectStyles() {
             background: rgba(255, 255, 255, 0.15) !important;
             z-index: 3100 !important;
             pointer-events: none !important;
+            display: none !important;
             opacity: 0 !important;
             overflow: visible !important;
             transition: opacity 0.25s ease !important;
         }
-        #yt-cm-progress-bar-track.yt-cm-pb-visible {
+        html.yt-cm-wfs #yt-cm-progress-bar-track.yt-cm-pb-visible,
+        html.yt-cm-cinema-active #yt-cm-progress-bar-track.yt-cm-pb-visible {
+            display: block !important;
             opacity: min(1, calc(var(--yt-cm-ctrl-opacity, 1) + 0.4)) !important;
         }
         /* Hide our bar while native controls are visible (cursor over player) */
@@ -132,13 +135,13 @@ function injectStyles() {
         }
 
 
-        /* ── Unified HUD Unit (Timestamp · Speed · Quality) ── */
+        /* ── Unified HUD Unit (Timestamp · Speed · Quality: only in WFS & Cinema mode) ── */
         #yt-cm-hud {
             position: absolute !important;
             top: 10px;
             left: 4px;
             z-index: 3000 !important;
-            display: inline-flex !important;
+            display: none !important;
             flex-direction: column !important;
             align-items: flex-start !important;
             gap: 2px !important;
@@ -159,7 +162,9 @@ function injectStyles() {
             white-space: nowrap !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
         }
-        #yt-cm-hud.yt-cm-hud-visible {
+        html.yt-cm-wfs #yt-cm-hud.yt-cm-hud-visible,
+        html.yt-cm-cinema-active #yt-cm-hud.yt-cm-hud-visible {
+            display: inline-flex !important;
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
         }
         #yt-cm-hud.yt-cm-dragging {
@@ -346,7 +351,8 @@ function injectStyles() {
         #yt-cm-playlist-btn {
             display: none !important;
         }
-        html.yt-cm-wfs #yt-cm-playlist-btn.yt-cm-playlist-visible {
+        html.yt-cm-wfs #yt-cm-playlist-btn.yt-cm-playlist-visible,
+        html.yt-cm-cinema-active #yt-cm-playlist-btn.yt-cm-playlist-visible {
             display: inline-flex !important;
         }
         #yt-cm-playlist-btn.yt-cm-playlist-active {
@@ -440,22 +446,27 @@ function injectStyles() {
             overflow-y: auto !important;
         }
 
-        /* Feature 8: Zoom in WFS */
-        html.yt-cm-wfs #movie_player .html5-video-container video {
+        /* Feature 8: Zoom in WFS & Cinema */
+        html.yt-cm-wfs #movie_player .html5-video-container video,
+        html.yt-cm-cinema-active #movie_player .html5-video-container video {
             transform: scale(var(--yt-cm-zoom, 1)) translate(var(--yt-cm-pan-x, 0px), var(--yt-cm-pan-y, 0px)) !important;
             transform-origin: center center !important;
             transition: transform 0.15s ease !important;
         }
-        html.yt-cm-wfs #movie_player.yt-cm-zoomed-in:not(.ytp-autohide) .html5-video-container {
+        html.yt-cm-wfs #movie_player.yt-cm-zoomed-in:not(.ytp-autohide) .html5-video-container,
+        html.yt-cm-cinema-active #movie_player.yt-cm-zoomed-in:not(.ytp-autohide) .html5-video-container {
             cursor: default !important;
         }
-        html.yt-cm-wfs #movie_player.yt-cm-zoom-panning:not(.ytp-autohide) .html5-video-container {
+        html.yt-cm-wfs #movie_player.yt-cm-zoom-panning:not(.ytp-autohide) .html5-video-container,
+        html.yt-cm-cinema-active #movie_player.yt-cm-zoom-panning:not(.ytp-autohide) .html5-video-container {
             cursor: default !important;
         }
-        html.yt-cm-wfs #movie_player.ytp-autohide .html5-video-container {
+        html.yt-cm-wfs #movie_player.ytp-autohide .html5-video-container,
+        html.yt-cm-cinema-active #movie_player.ytp-autohide .html5-video-container {
             cursor: none !important;
         }
-        html.yt-cm-wfs #movie_player.yt-cm-zoom-panning .html5-video-container video {
+        html.yt-cm-wfs #movie_player.yt-cm-zoom-panning .html5-video-container video,
+        html.yt-cm-cinema-active #movie_player.yt-cm-zoom-panning .html5-video-container video {
             transition: none !important;
         }
     `;
@@ -498,6 +509,7 @@ function enterWFS() {
     attachZoomListeners();
     updatePlaylistBtnVisibility();
     updateHudVisibility();
+    updateProgressBarVisibility();
     requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
 }
 function exitWFS() {
@@ -507,10 +519,13 @@ function exitWFS() {
     document.documentElement.classList.remove('yt-cm-wfs');
     isWFS = false;
     document.removeEventListener('keydown', onWFSKey, true);
-    detachZoomListeners();
-    resetZoom();  // always reset zoom when leaving WFS
+    if (!isCinema) {
+        detachZoomListeners();
+        resetZoom();
+    }
     updatePlaylistBtnVisibility();
     updateHudVisibility();
+    updateProgressBarVisibility();
     window.scrollTo(0, 0);
     // Let the CSS revert in one frame, then tell YouTube's player to re-measure
     requestAnimationFrame(() => {
@@ -609,7 +624,7 @@ function onActionsDragEnd() {
     actionGroupEl?.classList.remove('yt-cm-actions-dragging');
     if (!_actionsDragging) {
         if (_actionsClickTarget && _actionsClickTarget.closest('#yt-cm-playlist-btn')) {
-            if (isWFS) togglePlaylistDrawer();
+            if (isWFS || isCinema) togglePlaylistDrawer();
         } else if (_actionsClickTarget && _actionsClickTarget.closest('#yt-cm-wfs-btn')) {
             toggleWFS();
         }
@@ -652,7 +667,7 @@ function hasActivePlaylist() {
 
 function updatePlaylistBtnVisibility() {
     if (!plBtnEl) return;
-    const shouldShow = isWFS && hasActivePlaylist();
+    const shouldShow = (isWFS || isCinema) && hasActivePlaylist();
     plBtnEl.classList.toggle('yt-cm-playlist-visible', shouldShow);
     if (!shouldShow) {
         plBtnEl.style.setProperty('display', 'none', 'important');
@@ -730,7 +745,7 @@ function onPlaylistOutsideClick(e) {
 }
 
 function openPlaylistDrawer() {
-    if (!isWFS) return;
+    if (!isWFS && !isCinema) return;
     const panel = document.querySelector('ytd-playlist-panel-renderer');
     if (!panel || !playerEl) return;
 
@@ -757,7 +772,7 @@ function openPlaylistDrawer() {
     if (closeBtn && !closeBtn._ytCmBound) {
         closeBtn._ytCmBound = true;
         closeBtn.addEventListener('click', (e) => {
-            if (isWFS && isPlaylistDrawerOpen) {
+            if ((isWFS || isCinema) && isPlaylistDrawerOpen) {
                 e.preventDefault();
                 e.stopPropagation();
                 closePlaylistDrawer();
@@ -808,7 +823,7 @@ function closePlaylistDrawer() {
 }
 
 function togglePlaylistDrawer() {
-    if (!isWFS) return;
+    if (!isWFS && !isCinema) return;
     isPlaylistDrawerOpen ? closePlaylistDrawer() : openPlaylistDrawer();
 }
 
@@ -864,12 +879,25 @@ function enterCinema() {
     isCinema = true;
     document.documentElement.classList.add('yt-cm-cinema-active');
     buildBars();
+    attachZoomListeners();
+    updatePlaylistBtnVisibility();
+    updateHudVisibility();
+    updateProgressBarVisibility();
 }
 function exitCinema() {
     if (!isCinema) return;
+    if (isPlaylistDrawerOpen) closePlaylistDrawer();
+    if (isQualityMenuOpen) closeQualityMenu();
     isCinema = false;
     document.documentElement.classList.remove('yt-cm-cinema-active');
     destroyBars();
+    if (!isWFS) {
+        detachZoomListeners();
+        resetZoom();
+    }
+    updatePlaylistBtnVisibility();
+    updateHudVisibility();
+    updateProgressBarVisibility();
 }
 function toggleCinema() { isCinema ? exitCinema() : enterCinema(); }
 
@@ -918,6 +946,15 @@ function _progressRafLoop() {
     _progressRafId = requestAnimationFrame(_progressRafLoop);
 }
 
+function updateProgressBarVisibility() {
+    const inFocus = isWFS || isCinema;
+    if (inFocus && isProgressBarVisible) {
+        showProgressBar();
+    } else {
+        hideProgressBar();
+    }
+}
+
 function showProgressBar() {
     const el = ensureProgressBarEl();
     if (!el) return;
@@ -934,7 +971,7 @@ function hideProgressBar() {
 
 function toggleProgressBar() {
     isProgressBarVisible = !isProgressBarVisible;
-    isProgressBarVisible ? showProgressBar() : hideProgressBar();
+    updateProgressBarVisibility();
     chrome.storage.local.set({ progressBar: isProgressBarVisible });
 }
 
@@ -1307,18 +1344,20 @@ function updateHudVisibility() {
     const el = ensureHudEl();
     if (!el) return;
 
-    const showTime    = isTimestampVisible;
-    const showSpeed   = isSpeedVisible;
-    const showQuality = isWFS && isQualityVisible;
+    const inFocus     = isWFS || isCinema;
+    const showTime    = inFocus && isTimestampVisible;
+    const showSpeed   = inFocus && isSpeedVisible;
+    const showQuality = inFocus && isQualityVisible;
 
     if (hudTimeEl)    hudTimeEl.style.display    = showTime ? 'inline-flex' : 'none';
     if (hudSpeedEl)   hudSpeedEl.style.display   = showSpeed ? 'inline-flex' : 'none';
     if (hudQualityEl) hudQualityEl.style.display = showQuality ? 'inline-flex' : 'none';
 
-    const anyVisible = showTime || showSpeed || showQuality;
+    const anyVisible = inFocus && (showTime || showSpeed || showQuality);
     el.classList.toggle('yt-cm-hud-visible', anyVisible);
 
     if (anyVisible) {
+        el.style.removeProperty('display');
         requestAnimationFrame(() => {
             applyHudPosition();
             onTimeUpdate();
@@ -1338,6 +1377,7 @@ function updateHudVisibility() {
         window.addEventListener('resize', onHudResize, { passive: true });
         window.postMessage({ source: 'YT_CLEAN_MODE_CONTENT', action: 'GET_QUALITY' }, '*');
     } else {
+        el.style.setProperty('display', 'none', 'important');
         closeQualityMenu();
     }
 }
@@ -1388,13 +1428,19 @@ document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, textarea, [contenteditable]')) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
+    if (e.key === 'Escape') {
+        if (isPlaylistDrawerOpen) { closePlaylistDrawer(); return; }
+        if (isQualityMenuOpen) { closeQualityMenu(); return; }
+        if (isCinema && !isWFS) { exitCinema(); return; }
+    }
+
     if (!e.shiftKey) {
         if (e.code === 'Backquote') toggleWFS();          // `  → Windowed Fullscreen
         if (e.code === 'KeyZ')      toggleCinema();        // Z  → Cinema Mode
         if (e.code === 'KeyH')      toggleHideControls();  // H  → Hide Controls
         if (e.code === 'KeyY')      toggleTimestamp();     // Y  → Timestamp Overlay
         if (e.code === 'KeyX')      toggleSpeed();         // X  → Speed Indicator
-        if (e.code === 'KeyV')      toggleQuality();       // V  → Video Quality (WFS)
+        if (e.code === 'KeyV')      toggleQuality();       // V  → Video Quality (WFS / Cinema)
         if (e.code === 'KeyP')      toggleProgressBar();   // P  → Progress Bar
         if (e.code === 'KeyE') {                           // E  → opacity −5%
             controlOpacity = parseFloat(Math.max(0, controlOpacity - 0.05).toFixed(2));
@@ -1406,8 +1452,8 @@ document.addEventListener('keydown', (e) => {
             applyOpacity();
             chrome.storage.local.set({ controlOpacity });
         }
-        // Zoom shortcuts (only in WFS mode)
-        if (isWFS) {
+        // Zoom shortcuts (in WFS or Cinema mode)
+        if (isWFS || isCinema) {
             if (e.code === 'KeyW') {                                 // W → zoom in
                 e.preventDefault();
                 zoomBy(ZOOM_STEP);
@@ -1480,7 +1526,7 @@ function findPlayer() {
         wfsBtnEl        = null;
         plBtnEl         = null;
         updateHudVisibility();
-        if (isProgressBarVisible) showProgressBar();
+        updateProgressBarVisibility();
         injectActionGroup();
         return;
     }
@@ -1496,7 +1542,7 @@ function findPlayer() {
             wfsBtnEl        = null;
             plBtnEl         = null;
             updateHudVisibility();
-            if (isProgressBarVisible) showProgressBar();
+            updateProgressBarVisibility();
             injectActionGroup();
             obs.disconnect();
         }
@@ -1504,7 +1550,7 @@ function findPlayer() {
     obs.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-// ── Feature 8: Video Zoom (WFS only) ─────────────────────────────────────────
+// ── Feature 8: Video Zoom (WFS & Cinema) ─────────────────────────────────────
 const ZOOM_MIN       = 1;
 const ZOOM_MAX       = 5;
 const ZOOM_STEP      = 0.05;   // per keypress (5% — smooth)
@@ -1560,7 +1606,7 @@ function clampPan() {
 
 // Pan handlers (drag to pan when zoomed in)
 function onZoomPanStart(e) {
-    if (!isWFS || _zoomLevel <= 1 || !playerEl) return;
+    if ((!isWFS && !isCinema) || _zoomLevel <= 1 || !playerEl) return;
     // Only start pan with left button and NOT on controls
     if (e.button !== 0) return;
     // Don't intercept clicks on interactive elements
