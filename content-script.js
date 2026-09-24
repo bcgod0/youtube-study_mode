@@ -499,9 +499,15 @@ function toggleHideControls() {
 
 // ── 2. Feature 2: Windowed Fullscreen ────────────────────────────────────────
 let isWFS = false;
+let _lastWfsToggleTime = 0;
 
 function enterWFS() {
     if (isWFS) return;
+    if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
+        document.exitFullscreen().catch(() => {});
+    } else if (document.webkitFullscreenElement && typeof document.webkitExitFullscreen === 'function') {
+        document.webkitExitFullscreen();
+    }
     document.documentElement.classList.add('yt-cm-wfs');
     window.scrollTo(0, 0);
     isWFS = true;
@@ -561,7 +567,14 @@ function onWFSKey(e) {
         }
     }
 }
-function toggleWFS() { isWFS ? exitWFS() : enterWFS(); updateWFSBtn(); updatePlaylistBtnVisibility(); }
+function toggleWFS() {
+    const now = Date.now();
+    if (now - _lastWfsToggleTime < 350) return;
+    _lastWfsToggleTime = now;
+    isWFS ? exitWFS() : enterWFS();
+    updateWFSBtn();
+    updatePlaylistBtnVisibility();
+}
 
 // ── Features 6 & 9: Unified Floating Actions Group (Playlist + WFS buttons) ──
 let actionGroupEl         = null;
@@ -652,7 +665,7 @@ function onActionsDragStart(e) {
 function updateWFSBtn() {
     if (!wfsBtnEl) return;
     wfsBtnEl.classList.toggle('yt-cm-wfs-active', isWFS);
-    wfsBtnEl.title = isWFS ? 'Exit Windowed Fullscreen (` or Esc) · Drag to move' : 'Windowed Fullscreen (`) · Drag to move';
+    wfsBtnEl.title = isWFS ? 'Exit Windowed Fullscreen (Double-click, ` or Esc) · Drag to move' : 'Windowed Fullscreen (Double-click or `) · Drag to move';
 }
 
 function onActionsResize() { applyActionsPosition(); }
@@ -1420,6 +1433,8 @@ window.addEventListener('message', (event) => {
             }));
         }
         updateQualityDisplay();
+    } else if (event.data.action === 'TOGGLE_WFS_FROM_DBLCLICK') {
+        toggleWFS();
     }
 });
 
@@ -1510,6 +1525,62 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         resetZoom();
     }
     return true;
+});
+
+// ── Double-click on screen to toggle Windowed Fullscreen ──────────────────────
+const INTERACTIVE_SELECTOR = [
+    '.ytp-chrome-bottom',
+    '.ytp-chrome-top',
+    '.ytp-settings-menu',
+    '.ytp-panel',
+    '.ytp-popup',
+    '.ytp-contextmenu',
+    '.ytp-menu',
+    '.ytp-ce-element',
+    '.ytp-cards-teaser',
+    '.ytp-cards-button',
+    '.ytp-paid-content-overlay',
+    '#yt-cm-hud',
+    '#yt-cm-quality-menu',
+    '#yt-cm-progress-bar-track',
+    '#yt-cm-action-group',
+    '.yt-cm-playlist-drawer',
+    'button',
+    'a',
+    'input',
+    'textarea',
+    'select',
+    '[role="button"]',
+    '[role="slider"]',
+    '[role="menuitem"]',
+    '[role="menu"]',
+    '[role="tab"]',
+    '[contenteditable]',
+    '.ytp-button',
+    '.ytp-progress-bar',
+    '.ytp-volume-panel'
+].join(', ');
+
+function isInteractiveTarget(target) {
+    if (!target || typeof target.closest !== 'function') return false;
+    return Boolean(target.closest(INTERACTIVE_SELECTOR));
+}
+
+window.addEventListener('dblclick', (e) => {
+    if (e.button !== 0) return;
+    if (!playerEl || !playerEl.contains(e.target)) return;
+    if (isInteractiveTarget(e.target)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    toggleWFS();
+}, true);
+
+document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement && isWFS) {
+        exitWFS();
+    }
 });
 
 // ── 5. Player detection ───────────────────────────────────────────────────────
