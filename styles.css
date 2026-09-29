@@ -1,6 +1,8 @@
 /* styles.css – fallback; core styles injected as a <style> tag by content-script.js */
 
-#movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container) {
+/* Feature 1: Lock Controls (WFS only) — direct-child approach with full extension-overlay exclusions.
+   MUST match the injected CSS exclusion list exactly so the two rules never conflict. */
+html.yt-cm-wfs #movie_player.yt-cm-controls-locked > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-hud):not(#yt-cm-quality-menu):not(#yt-cm-progress-bar-track):not(#yt-cm-action-group):not(.yt-cm-playlist-drawer):not(#yt-cm-lock-toast) {
     opacity: 0 !important;
     pointer-events: none !important;
 }

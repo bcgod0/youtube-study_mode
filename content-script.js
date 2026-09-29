@@ -9,15 +9,62 @@ function injectStyles() {
         /* Controls Opacity — only when YouTube is actively showing controls.
            Wildcard [class*="bezel"] covers all bezel variants so the toast is never dimmed.
            #yt-cm-timestamp is excluded so the toggle fully controls its visibility. */
-        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-hud):not(#yt-cm-quality-menu):not(#yt-cm-progress-bar-track):not(#yt-cm-action-group):not(.yt-cm-playlist-drawer) {
+        #movie_player:not(.ytp-autohide) > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-hud):not(#yt-cm-quality-menu):not(#yt-cm-progress-bar-track):not(#yt-cm-action-group):not(.yt-cm-playlist-drawer):not(#yt-cm-lock-toast) {
             opacity: var(--yt-cm-ctrl-opacity, 1) !important;
             transition: opacity 0.15s ease !important;
         }
 
-        /* Hide Controls on Hover — highest priority override. Bezel and timestamp excluded. */
-        #movie_player.yt-cm-hide > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-hud):not(#yt-cm-quality-menu):not(#yt-cm-progress-bar-track):not(#yt-cm-action-group):not(.yt-cm-playlist-drawer) {
+        /* Feature 1: Lock Controls in WFS — controls remain hidden even when mouse moves over the player.
+           Uses the broad direct-child selector (proven to override YouTube's own opacity rules).
+           ONLY in Windowed Fullscreen (html.yt-cm-wfs). Extension overlays are excluded explicitly. */
+        html.yt-cm-wfs #movie_player.yt-cm-controls-locked > *:not(.html5-video-container):not(.ytp-caption-window-container):not([class*="bezel"]):not(#yt-cm-hud):not(#yt-cm-quality-menu):not(#yt-cm-progress-bar-track):not(#yt-cm-action-group):not(.yt-cm-playlist-drawer):not(#yt-cm-lock-toast) {
             opacity: 0 !important;
             pointer-events: none !important;
+        }
+
+        #yt-cm-lock-btn {
+            display: none !important;
+        }
+        html.yt-cm-wfs #yt-cm-lock-btn {
+            display: inline-flex !important;
+        }
+        #yt-cm-lock-btn.yt-cm-locked-active {
+            color: #ff4d6a !important;
+            background: rgba(255, 77, 106, 0.22) !important;
+        }
+        #yt-cm-lock-btn.yt-cm-locked-active:hover {
+            color: #ff6b84 !important;
+            background: rgba(255, 77, 106, 0.35) !important;
+        }
+
+        /* Lock / Unlock Toast Notification */
+        #yt-cm-lock-toast {
+            position: absolute !important;
+            top: 24px !important;
+            left: 50% !important;
+            transform: translateX(-50%) translateY(-10px) !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+            padding: 8px 18px !important;
+            background: rgba(18, 18, 18, 0.9) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.16) !important;
+            border-radius: 20px !important;
+            color: #fff !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            letter-spacing: 0.02em !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+            z-index: 3200 !important;
+            pointer-events: none !important;
+            opacity: 0 !important;
+            transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+        #yt-cm-lock-toast.yt-cm-toast-show {
+            opacity: 1 !important;
+            transform: translateX(-50%) translateY(0) !important;
         }
 
         /* Explicit override: always force any bezel element to full opacity
@@ -229,8 +276,9 @@ function injectStyles() {
             display: block !important;
             opacity: min(1, calc(var(--yt-cm-ctrl-opacity, 1) + 0.4)) !important;
         }
-        /* Hide our bar while native controls are visible (cursor over player) */
-        #movie_player:not(.ytp-autohide) #yt-cm-progress-bar-track.yt-cm-pb-visible {
+        /* Hide our bar while native controls are visible (cursor over player).
+           Does NOT apply when controls are locked — the bar should stay visible in that state. */
+        #movie_player:not(.ytp-autohide):not(.yt-cm-controls-locked) #yt-cm-progress-bar-track.yt-cm-pb-visible {
             opacity: 0 !important;
             transition: opacity 0.15s ease !important;
         }
@@ -585,28 +633,65 @@ function injectStyles() {
     (document.head || document.documentElement).appendChild(s);
 }
 
-// ── 1. Feature 1: Hide control bar on hover ───────────────────────────────────
-const CTRL_BAR_H        = 60;
-const CLS_HIDE          = 'yt-cm-hide';
-let playerEl            = null;
-let isHideControlsEnabled = true;  // default on; loaded from storage below
+// ── 1. Feature 1: Lock/Unlock Controls (Windowed Fullscreen only) ─────────────
+const CLS_LOCKED          = 'yt-cm-controls-locked';
+let playerEl              = null;
+let isControlsLocked      = false; // persistent lock state
+let lockBtnEl             = null;
+let _lockToastEl          = null;
+let _lockToastTimer       = null;
 
-document.addEventListener('mousemove', (e) => {
-    if (!playerEl || !isHideControlsEnabled) {
-        if (playerEl) playerEl.classList.remove(CLS_HIDE);
-        return;
+function showLockToast(locked) {
+    if (!playerEl) return;
+    if (!_lockToastEl || !playerEl.contains(_lockToastEl)) {
+        _lockToastEl = document.getElementById('yt-cm-lock-toast');
+        if (!_lockToastEl) {
+            _lockToastEl = document.createElement('div');
+            _lockToastEl.id = 'yt-cm-lock-toast';
+            playerEl.appendChild(_lockToastEl);
+        }
     }
-    const r = playerEl.getBoundingClientRect();
-    const over = e.clientX >= r.left && e.clientX <= r.right
-              && e.clientY >= r.top  && e.clientY <= r.bottom;
-    if (!over) { playerEl.classList.remove(CLS_HIDE); return; }
-    playerEl.classList.toggle(CLS_HIDE, (r.bottom - e.clientY) > CTRL_BAR_H);
-}, { passive: true });
+    clearTimeout(_lockToastTimer);
+    _lockToastEl.innerHTML = locked
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span>Controls Locked</span>`
+        : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg><span>Controls Unlocked</span>`;
+    _lockToastEl.classList.add('yt-cm-toast-show');
+    _lockToastTimer = setTimeout(() => {
+        _lockToastEl?.classList.remove('yt-cm-toast-show');
+    }, 1400);
+}
 
-function toggleHideControls() {
-    isHideControlsEnabled = !isHideControlsEnabled;
-    if (!isHideControlsEnabled && playerEl) playerEl.classList.remove(CLS_HIDE);
-    chrome.storage.local.set({ hideControls: isHideControlsEnabled });
+function updateLockBtn() {
+    if (!lockBtnEl) return;
+    const showBtn = isWFS;
+    lockBtnEl.style.setProperty('display', showBtn ? 'inline-flex' : 'none', 'important');
+    lockBtnEl.classList.toggle('yt-cm-locked-active', isControlsLocked);
+    lockBtnEl.title = isControlsLocked
+        ? 'Unlock Controls (H) · Drag to move'
+        : 'Lock Controls (H) · Drag to move';
+    lockBtnEl.innerHTML = isControlsLocked
+        ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`
+        : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`;
+}
+
+function updateLockState() {
+    if (!playerEl) return;
+    const shouldLock = isWFS && isControlsLocked;
+    playerEl.classList.toggle(CLS_LOCKED, shouldLock);
+    updateLockBtn();
+}
+
+function toggleLockControls(forceState) {
+    if (typeof forceState === 'boolean') {
+        isControlsLocked = forceState;
+    } else {
+        isControlsLocked = !isControlsLocked;
+    }
+    chrome.storage.local.set({ controlsLocked: isControlsLocked });
+    updateLockState();
+    if (isWFS) {
+        showLockToast(isControlsLocked);
+    }
 }
 
 // ── 2. Feature 2: Windowed Fullscreen ────────────────────────────────────────
@@ -656,6 +741,7 @@ function enterWFS(isRefresh = false) {
     updateHudVisibility();
     updateProgressBarVisibility();
     updateWFSBtn();
+    updateLockState();
 
     requestAnimationFrame(() => {
         window.dispatchEvent(new Event('resize'));
@@ -679,6 +765,7 @@ function exitWFS() {
     updateHudVisibility();
     updateProgressBarVisibility();
     updateWFSBtn();
+    updateLockState();
 
     // Scroll back to top so the player is visible after layout reflows
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -796,6 +883,8 @@ function onActionsDragEnd() {
     if (!_actionsDragging) {
         if (_actionsClickTarget && _actionsClickTarget.closest('#yt-cm-playlist-btn')) {
             if (isWFS || isCinema) togglePlaylistDrawer();
+        } else if (_actionsClickTarget && _actionsClickTarget.closest('#yt-cm-lock-btn')) {
+            if (isWFS) toggleLockControls();
         } else if (_actionsClickTarget && _actionsClickTarget.closest('#yt-cm-wfs-btn')) {
             toggleWFS();
         }
@@ -872,6 +961,11 @@ function ensureActionGroupEl() {
             `;
             actionGroupEl.appendChild(plBtnEl);
 
+            lockBtnEl = document.createElement('button');
+            lockBtnEl.id = 'yt-cm-lock-btn';
+            lockBtnEl.className = 'yt-cm-action-btn';
+            actionGroupEl.appendChild(lockBtnEl);
+
             wfsBtnEl = document.createElement('button');
             wfsBtnEl.id = 'yt-cm-wfs-btn';
             wfsBtnEl.className = 'yt-cm-action-btn';
@@ -888,10 +982,12 @@ function ensureActionGroupEl() {
             actionGroupEl.addEventListener('mousedown', onActionsDragStart);
             playerEl.appendChild(actionGroupEl);
         } else if (actionGroupEl) {
-            plBtnEl  = actionGroupEl.querySelector('#yt-cm-playlist-btn');
-            wfsBtnEl = actionGroupEl.querySelector('#yt-cm-wfs-btn');
+            plBtnEl   = actionGroupEl.querySelector('#yt-cm-playlist-btn');
+            lockBtnEl = actionGroupEl.querySelector('#yt-cm-lock-btn');
+            wfsBtnEl  = actionGroupEl.querySelector('#yt-cm-wfs-btn');
         }
     }
+    updateLockBtn();
     return actionGroupEl;
 }
 
@@ -901,6 +997,7 @@ function injectActionGroup() {
 
     ensureActionGroupEl();
     updateWFSBtn();
+    updateLockBtn();
     updatePlaylistBtnVisibility();
     requestAnimationFrame(applyActionsPosition);
     window.removeEventListener('resize', onActionsResize);
@@ -1610,7 +1707,7 @@ document.addEventListener('keydown', (e) => {
     if (!e.shiftKey) {
         if (e.code === 'Backquote') toggleWFS();          // `  → Windowed Fullscreen
         if (e.code === 'KeyZ')      toggleCinema();        // Z  → Cinema Mode
-        if (e.code === 'KeyH')      toggleHideControls();  // H  → Hide Controls
+        if (e.code === 'KeyH')      { if (isWFS) toggleLockControls(); } // H  → Lock/Unlock Controls (WFS only)
         if (e.code === 'KeyY')      toggleTimestamp();     // Y  → Timestamp Overlay
         if (e.code === 'KeyX')      toggleSpeed();         // X  → Speed Indicator
         if (e.code === 'KeyV')      toggleQuality();       // V  → Video Quality (WFS / Cinema)
@@ -1651,7 +1748,8 @@ document.addEventListener('keydown', (e) => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.action === 'getState') {
         sendResponse({
-            hideControls:        isHideControlsEnabled,
+            controlsLocked:      isControlsLocked,
+            hideControls:        isControlsLocked,
             wfs:                 isWFS,
             autoWFS:             isAutoWFSEnabled,
             cinema:              isCinema,
@@ -1664,7 +1762,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             qualityLabel:        _qualityLabel || getResolutionFromVideo(getVideo())?.label || 'Auto',
         });
     }
-    else if (msg.action === 'toggleHideControls') { toggleHideControls(); }
+    else if (msg.action === 'toggleLockControls' || msg.action === 'toggleHideControls') {
+        if (typeof msg.enabled === 'boolean') {
+            toggleLockControls(msg.enabled);
+        } else {
+            toggleLockControls();
+        }
+    }
     else if (msg.action === 'toggleWindowedFS')   { toggleWFS(); }
     else if (msg.action === 'toggleAutoWFS')     { toggleAutoWFS(msg.enabled); }
     else if (msg.action === 'toggleCinema')        { toggleCinema(); }
@@ -1756,9 +1860,12 @@ function findPlayer() {
         actionGroupEl   = null;
         wfsBtnEl        = null;
         plBtnEl         = null;
+        lockBtnEl       = null;
+        _lockToastEl    = null;
         updateHudVisibility();
         updateProgressBarVisibility();
         injectActionGroup();
+        updateLockState();
         if (isWFS) {
             requestAnimationFrame(() => {
                 window.dispatchEvent(new Event('resize'));
@@ -1778,9 +1885,12 @@ function findPlayer() {
             actionGroupEl   = null;
             wfsBtnEl        = null;
             plBtnEl         = null;
+            lockBtnEl       = null;
+            _lockToastEl    = null;
             updateHudVisibility();
             updateProgressBarVisibility();
             injectActionGroup();
+            updateLockState();
             if (isWFS) {
                 requestAnimationFrame(() => {
                     window.dispatchEvent(new Event('resize'));
@@ -2007,7 +2117,7 @@ injectStyles();
 chrome.storage.local.get(
     {
         autoWFS: true,
-        hideControls: true,
+        controlsLocked: false,
         controlOpacity: 1,
         isOpacityEnabled: true,
         hudPosX: 0.01,
@@ -2027,7 +2137,7 @@ chrome.storage.local.get(
     },
     (result) => {
         isAutoWFSEnabled       = result.autoWFS !== undefined ? result.autoWFS : true;
-        isHideControlsEnabled = result.hideControls;
+        isControlsLocked       = result.controlsLocked ?? false;
         controlOpacity        = result.controlOpacity;
         isOpacityEnabled      = result.isOpacityEnabled;
         _hudPosX              = result.hudPosX !== undefined ? result.hudPosX : (result.tsPosX !== undefined ? result.tsPosX : 0.01);

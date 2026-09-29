@@ -4,7 +4,7 @@ const dot        = document.getElementById('status-dot');
 const statusTx   = document.getElementById('status-text');
 const statusPill = document.getElementById('status-pill');
 const rows = {
-    hide:      document.getElementById('row-hide'),
+    lock:      document.getElementById('row-lock') || document.getElementById('row-hide'),
     wfs:       document.getElementById('row-wfs'),
     autowfs:   document.getElementById('row-autowfs'),
     zoom:      document.getElementById('row-zoom'),
@@ -14,7 +14,7 @@ const rows = {
     opacity:   document.getElementById('row-opacity'),
 };
 const chks = {
-    hide:      document.getElementById('chk-hide'),
+    lock:      document.getElementById('chk-lock') || document.getElementById('chk-hide'),
     wfs:       document.getElementById('chk-wfs'),
     autowfs:   document.getElementById('chk-autowfs'),
     quality:   document.getElementById('chk-quality'),
@@ -75,7 +75,7 @@ async function init() {
     Object.values(rows).forEach(r => r?.classList.remove('disabled'));
 
     // Set toggle states
-    if (chks.hide)      chks.hide.checked      = state.hideControls;
+    if (chks.lock)      chks.lock.checked      = state.controlsLocked ?? state.hideControls ?? false;
     if (chks.wfs)       chks.wfs.checked       = state.wfs;
     if (chks.autowfs)   chks.autowfs.checked   = state.autoWFS ?? true;
     if (chks.quality)   chks.quality.checked   = state.qualityVisible ?? true;
@@ -112,9 +112,9 @@ async function init() {
     }
 
     // ── Wire toggles ──
-    chks.hide?.addEventListener('change', async () => {
+    chks.lock?.addEventListener('change', async () => {
         const t = await getTab();
-        if (t?.id) chrome.tabs.sendMessage(t.id, { action: 'toggleHideControls' }).catch(() => {});
+        if (t?.id) chrome.tabs.sendMessage(t.id, { action: 'toggleLockControls' }).catch(() => {});
     });
     chks.wfs?.addEventListener('change', async () => {
         const t = await getTab();
