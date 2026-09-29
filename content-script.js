@@ -527,7 +527,7 @@ function injectStyles() {
             top: 46px !important;
             width: 330px !important;
             max-width: calc(100vw - 40px) !important;
-            max-height: min(600px, calc(100vh - 70px)) !important;
+            max-height: calc(min(600px, calc(100vh - 70px)) - 2cm) !important;
             z-index: 3150 !important;
             background: rgba(15, 15, 15, 0.94) !important;
             backdrop-filter: blur(24px) !important;
