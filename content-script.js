@@ -26,62 +26,174 @@ function injectStyles() {
             opacity: 1 !important;
         }
 
-        /* Feature 2: Windowed Fullscreen — cascade 100vh down to the player */
-        html.yt-cm-wfs,
-        html.yt-cm-wfs body { overflow: hidden !important; height: 100vh !important; }
+        /* Feature 2: Windowed Fullscreen — direct scrollable layout without cinema mode.
+           The player fills the viewport (100vw × 100vh) at scroll=0; scrolling down reveals
+           description, comments, and recommendations naturally in YouTube's native 2-column layout. */
 
+        /* Prevent any horizontal scrollbar on the page */
+        html.yt-cm-wfs {
+            overflow-x: hidden !important;
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+        html.yt-cm-wfs body {
+            overflow-x: hidden !important;
+            max-width: 100% !important;
+            width: 100% !important;
+        }
+
+        /* Hide the header so the player starts flush at the top */
         html.yt-cm-wfs #masthead-container { display: none !important; }
 
+        /* Kill masthead height reservation so no gap appears at the top */
         html.yt-cm-wfs ytd-app {
             --ytd-masthead-height: 0px !important;
-            height: 100vh !important;
+            overflow-x: hidden !important;
+            max-width: 100% !important;
+            width: 100% !important;
         }
+
+        /* Page manager: flush to top, no inherited offset */
         html.yt-cm-wfs ytd-page-manager {
             margin-top: 0 !important;
             top: 0 !important;
-            height: 100vh !important;
-            overflow: hidden !important;
+            overflow-x: hidden !important;
+            max-width: 100% !important;
+            width: 100% !important;
         }
+
+        /* ytd-watch-flexy: flush to top, full width */
         html.yt-cm-wfs ytd-watch-flexy {
-            height: 100vh !important;
-            overflow: hidden !important;
             padding-top: 0 !important;
             margin-top: 0 !important;
-        }
-        html.yt-cm-wfs #columns {
-            height: 100vh !important;
-            overflow: hidden !important;
-        }
-        html.yt-cm-wfs #secondary,
-        html.yt-cm-wfs #secondary-inner { display: none !important; }
-
-        html.yt-cm-wfs #primary {
-            height: 100vh !important;
+            max-width: 100% !important;
             width: 100% !important;
-            max-width: none !important;
             min-width: 0 !important;
-            flex: 1 1 100% !important;
-            overflow: hidden !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Make #primary and #primary-inner display: contents so #player and #below
+           become direct flex items of #columns alongside #secondary */
+        html.yt-cm-wfs #columns {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: center !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        html.yt-cm-wfs #primary,
+        html.yt-cm-wfs #primary-inner {
+            display: contents !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+        }
+
+        /* In NORMAL mode: #full-bleed-container is empty, hide it completely so it never pushes the player down! */
+        html.yt-cm-wfs ytd-watch-flexy:not([theater]) #player-full-bleed-container,
+        html.yt-cm-wfs ytd-watch-flexy:not([theater]) #full-bleed-container {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
             padding: 0 !important;
             margin: 0 !important;
         }
-        html.yt-cm-wfs #primary-inner {
-            height: 100vh !important;
-            overflow: hidden !important;
+
+        /* In THEATER mode: #player inside #primary is empty, hide it completely! */
+        html.yt-cm-wfs ytd-watch-flexy[theater] #player {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
             padding: 0 !important;
+            margin: 0 !important;
         }
+
+        /* In THEATER mode: #full-bleed-container holds the active player */
+        html.yt-cm-wfs ytd-watch-flexy[theater] #player-full-bleed-container,
+        html.yt-cm-wfs ytd-watch-flexy[theater] #full-bleed-container {
+            display: block !important;
+            width: 100% !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            min-height: 100vh !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+
+        /* In NORMAL mode: #player holds the active player */
+        html.yt-cm-wfs ytd-watch-flexy:not([theater]) #player {
+            display: block !important;
+            flex: 0 0 100% !important;
+            width: 100% !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            min-height: 100vh !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+
+        /* Common player inner containers */
+        html.yt-cm-wfs #player-wrap,
+        html.yt-cm-wfs #player-container-outer,
+        html.yt-cm-wfs #player-container-inner,
+        html.yt-cm-wfs #player-container,
         html.yt-cm-wfs ytd-player,
         html.yt-cm-wfs #container.ytd-player,
         html.yt-cm-wfs #movie_player {
             width: 100% !important;
             height: 100vh !important;
-            max-width: none !important;
-            max-height: none !important;
+            max-height: 100vh !important;
+            min-height: 100vh !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
         }
-        html.yt-cm-wfs #below,
+
+        /* Natural below-player layout: description/comments on the left, recommendations on the right */
+        html.yt-cm-wfs #below {
+            flex: 1 1 500px !important;
+            max-width: min(100%, 1280px) !important;
+            min-width: 0 !important;
+            padding: 16px 24px !important;
+            box-sizing: border-box !important;
+            display: block !important;
+            overflow-x: hidden !important;
+        }
+
+        html.yt-cm-wfs #secondary {
+            flex: 0 1 400px !important;
+            max-width: min(100%, 420px) !important;
+            min-width: 0 !important;
+            padding: 16px 24px !important;
+            box-sizing: border-box !important;
+            display: block !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Reveal all below-player content (description, comments, live chat) */
         html.yt-cm-wfs ytd-watch-metadata,
         html.yt-cm-wfs ytd-comments,
-        html.yt-cm-wfs ytd-live-chat-frame { display: none !important; }
+        html.yt-cm-wfs ytd-live-chat-frame {
+            display: block !important;
+        }
 
         /* Feature 3: Cinema Mode — masthead fade; bars are injected by JS */
         html.yt-cm-cinema-active #masthead-container {
@@ -499,25 +611,59 @@ function toggleHideControls() {
 
 // ── 2. Feature 2: Windowed Fullscreen ────────────────────────────────────────
 let isWFS = false;
+let isAutoWFSEnabled = true;
 let _lastWfsToggleTime = 0;
+let _manuallyExitedWatchUrl = null;
+let _autoWfsPollTimer = null;
 
-function enterWFS() {
-    if (isWFS) return;
+function toggleAutoWFS(forcedState) {
+    if (typeof forcedState === 'boolean') {
+        isAutoWFSEnabled = forcedState;
+    } else {
+        isAutoWFSEnabled = !isAutoWFSEnabled;
+    }
+    chrome.storage.local.set({ autoWFS: isAutoWFSEnabled });
+    if (!isAutoWFSEnabled) {
+        if (_autoWfsPollTimer) {
+            clearInterval(_autoWfsPollTimer);
+            _autoWfsPollTimer = null;
+        }
+    } else if (location.pathname.startsWith('/watch') && !isWFS) {
+        _manuallyExitedWatchUrl = null;
+        scheduleAutoWFS();
+    }
+}
+
+function enterWFS(isRefresh = false) {
+    if (isWFS && !isRefresh) return;
     if (document.fullscreenElement && typeof document.exitFullscreen === 'function') {
         document.exitFullscreen().catch(() => {});
     } else if (document.webkitFullscreenElement && typeof document.webkitExitFullscreen === 'function') {
         document.webkitExitFullscreen();
     }
+
     document.documentElement.classList.add('yt-cm-wfs');
-    window.scrollTo(0, 0);
+    if (!isRefresh) {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }
     isWFS = true;
+    _manuallyExitedWatchUrl = null;
+
+    document.removeEventListener('keydown', onWFSKey, true);
     document.addEventListener('keydown', onWFSKey, true);
     attachZoomListeners();
     updatePlaylistBtnVisibility();
     updateHudVisibility();
     updateProgressBarVisibility();
-    requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    updateWFSBtn();
+
+    requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 250);
+    });
 }
+
 function exitWFS() {
     if (!isWFS) return;
     if (isPlaylistDrawerOpen) closePlaylistDrawer();
@@ -532,13 +678,17 @@ function exitWFS() {
     updatePlaylistBtnVisibility();
     updateHudVisibility();
     updateProgressBarVisibility();
-    window.scrollTo(0, 0);
-    // Let the CSS revert in one frame, then tell YouTube's player to re-measure
+    updateWFSBtn();
+
+    // Scroll back to top so the player is visible after layout reflows
+    window.scrollTo({ top: 0, behavior: 'instant' });
     requestAnimationFrame(() => {
         window.dispatchEvent(new Event('resize'));
-        setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 80);
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 250);
     });
 }
+
 function onWFSKey(e) {
     if (e.key === 'Escape') {
         if (isPlaylistDrawerOpen) {
@@ -549,6 +699,7 @@ function onWFSKey(e) {
             closeQualityMenu();
             return;
         }
+        _manuallyExitedWatchUrl = location.href;
         exitWFS();
         return;
     }
@@ -567,11 +718,18 @@ function onWFSKey(e) {
         }
     }
 }
+
 function toggleWFS() {
     const now = Date.now();
     if (now - _lastWfsToggleTime < 350) return;
     _lastWfsToggleTime = now;
-    isWFS ? exitWFS() : enterWFS();
+    if (isWFS) {
+        _manuallyExitedWatchUrl = location.href;
+        exitWFS();
+    } else {
+        _manuallyExitedWatchUrl = null;
+        enterWFS();
+    }
     updateWFSBtn();
     updatePlaylistBtnVisibility();
 }
@@ -1495,6 +1653,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         sendResponse({
             hideControls:        isHideControlsEnabled,
             wfs:                 isWFS,
+            autoWFS:             isAutoWFSEnabled,
             cinema:              isCinema,
             isTimestampVisible:  isTimestampVisible,
             opacityEnabled:      isOpacityEnabled,
@@ -1507,6 +1666,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     else if (msg.action === 'toggleHideControls') { toggleHideControls(); }
     else if (msg.action === 'toggleWindowedFS')   { toggleWFS(); }
+    else if (msg.action === 'toggleAutoWFS')     { toggleAutoWFS(msg.enabled); }
     else if (msg.action === 'toggleCinema')        { toggleCinema(); }
     else if (msg.action === 'toggleTimestamp')     { toggleTimestamp(); }
     else if (msg.action === 'toggleQuality')       { toggleQuality(); }
@@ -1599,6 +1759,12 @@ function findPlayer() {
         updateHudVisibility();
         updateProgressBarVisibility();
         injectActionGroup();
+        if (isWFS) {
+            requestAnimationFrame(() => {
+                window.dispatchEvent(new Event('resize'));
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
+            });
+        }
         return;
     }
     const obs = new MutationObserver(() => {
@@ -1615,6 +1781,12 @@ function findPlayer() {
             updateHudVisibility();
             updateProgressBarVisibility();
             injectActionGroup();
+            if (isWFS) {
+                requestAnimationFrame(() => {
+                    window.dispatchEvent(new Event('resize'));
+                    setTimeout(() => window.dispatchEvent(new Event('resize')), 150);
+                });
+            }
             obs.disconnect();
         }
     });
@@ -1729,13 +1901,112 @@ function init() {
     injectActionGroup();
 }
 
-document.addEventListener('yt-navigate-finish',   init);
-document.addEventListener('yt-page-data-updated', init);
+// Auto-enter WFS whenever the user navigates to a watch page
+function scheduleAutoWFS() {
+    if (!isAutoWFSEnabled) return;
+    if (!location.pathname.startsWith('/watch')) {
+        if (isWFS) exitWFS();
+        return;
+    }
+    if (_manuallyExitedWatchUrl && _manuallyExitedWatchUrl === location.href) return;
+
+    enterWFS(true);
+
+    if (_autoWfsPollTimer) clearInterval(_autoWfsPollTimer);
+
+    let checks = 0;
+    _autoWfsPollTimer = setInterval(() => {
+        checks++;
+        if (!location.pathname.startsWith('/watch') || !isWFS) {
+            clearInterval(_autoWfsPollTimer);
+            _autoWfsPollTimer = null;
+            return;
+        }
+
+        if (playerEl || document.getElementById('movie_player')) {
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        if ((playerEl || document.getElementById('movie_player')) && checks >= 3) {
+            clearInterval(_autoWfsPollTimer);
+            _autoWfsPollTimer = null;
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        if (checks > 20) {
+            clearInterval(_autoWfsPollTimer);
+            _autoWfsPollTimer = null;
+        }
+    }, 100);
+}
+
+// Click interception to detect clicking on any video link
+document.addEventListener('click', (e) => {
+    if (!isAutoWFSEnabled) return;
+    const link = e.target.closest('a[href*="/watch"]');
+    if (link) {
+        _manuallyExitedWatchUrl = null;
+        setTimeout(scheduleAutoWFS, 50);
+    }
+}, true);
+
+document.addEventListener('yt-navigate-start', (e) => {
+    if (!isAutoWFSEnabled) return;
+    const url = e?.detail?.url || location.pathname;
+    if (url && (url.startsWith('/watch') || url.includes('/watch?'))) {
+        _manuallyExitedWatchUrl = null;
+        setTimeout(scheduleAutoWFS, 50);
+    }
+});
+
+document.addEventListener('yt-navigate-finish', () => {
+    init();
+    scheduleAutoWFS();
+});
+
+document.addEventListener('yt-page-data-updated', () => {
+    init();
+    scheduleAutoWFS();
+});
+
+window.addEventListener('popstate', () => {
+    if (location.pathname.startsWith('/watch')) {
+        _manuallyExitedWatchUrl = null;
+        scheduleAutoWFS();
+    } else if (isWFS) {
+        exitWFS();
+    }
+});
+
+let _lastObservedUrl = location.href;
+setInterval(() => {
+    if (location.href !== _lastObservedUrl) {
+        _lastObservedUrl = location.href;
+        if (location.pathname.startsWith('/watch')) {
+            _manuallyExitedWatchUrl = null;
+            scheduleAutoWFS();
+        } else if (isWFS) {
+            exitWFS();
+        }
+    }
+}, 300);
+
+// Storage changes sync
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.autoWFS !== undefined) {
+        isAutoWFSEnabled = changes.autoWFS.newValue;
+        if (!isAutoWFSEnabled && _autoWfsPollTimer) {
+            clearInterval(_autoWfsPollTimer);
+            _autoWfsPollTimer = null;
+        }
+    }
+});
 
 // ── 6. Boot: load persisted preferences then initialise ──────────────────────
 injectStyles();
 chrome.storage.local.get(
     {
+        autoWFS: true,
         hideControls: true,
         controlOpacity: 1,
         isOpacityEnabled: true,
@@ -1755,6 +2026,7 @@ chrome.storage.local.get(
         qualityIndicator: true
     },
     (result) => {
+        isAutoWFSEnabled       = result.autoWFS !== undefined ? result.autoWFS : true;
         isHideControlsEnabled = result.hideControls;
         controlOpacity        = result.controlOpacity;
         isOpacityEnabled      = result.isOpacityEnabled;
@@ -1768,9 +2040,10 @@ chrome.storage.local.get(
         isQualityVisible       = result.qualityIndicator;
         applyOpacity();
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
+            document.addEventListener('DOMContentLoaded', () => { init(); scheduleAutoWFS(); });
         } else {
             init();
+            scheduleAutoWFS();
         }
     }
 );

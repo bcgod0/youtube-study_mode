@@ -5,13 +5,159 @@
     pointer-events: none !important;
 }
 
-html.yt-cm-wfs #movie_player {
-    position: fixed !important;
-    top: 0 !important; left: 0 !important;
-    width: 100vw !important; height: 100vh !important;
-    z-index: 2147483647 !important;
-    background: #000 !important;
+/* Prevent any horizontal scrollbar on the page */
+html.yt-cm-wfs {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
 }
 html.yt-cm-wfs body {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* Feature 2: WFS fallback — mirrors the injected <style> rules */
+html.yt-cm-wfs #masthead-container { display: none !important; }
+html.yt-cm-wfs ytd-app {
+    --ytd-masthead-height: 0px !important;
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+html.yt-cm-wfs ytd-page-manager {
+    margin-top: 0 !important;
+    top: 0 !important;
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+html.yt-cm-wfs ytd-watch-flexy {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+}
+
+html.yt-cm-wfs #columns {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+}
+
+html.yt-cm-wfs #primary,
+html.yt-cm-wfs #primary-inner {
+    display: contents !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
+/* In NORMAL mode: #full-bleed-container is empty, hide it completely so it never pushes the player down! */
+html.yt-cm-wfs ytd-watch-flexy:not([theater]) #player-full-bleed-container,
+html.yt-cm-wfs ytd-watch-flexy:not([theater]) #full-bleed-container {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* In THEATER mode: #player inside #primary is empty, hide it completely! */
+html.yt-cm-wfs ytd-watch-flexy[theater] #player {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* In THEATER mode: #full-bleed-container holds the active player */
+html.yt-cm-wfs ytd-watch-flexy[theater] #player-full-bleed-container,
+html.yt-cm-wfs ytd-watch-flexy[theater] #full-bleed-container {
+    display: block !important;
+    width: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
     overflow: hidden !important;
 }
+
+/* In NORMAL mode: #player holds the active player */
+html.yt-cm-wfs ytd-watch-flexy:not([theater]) #player {
+    display: block !important;
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+/* Common player inner containers */
+html.yt-cm-wfs #player-wrap,
+html.yt-cm-wfs #player-container-outer,
+html.yt-cm-wfs #player-container-inner,
+html.yt-cm-wfs #player-container,
+html.yt-cm-wfs ytd-player,
+html.yt-cm-wfs #container.ytd-player,
+html.yt-cm-wfs #movie_player {
+    width: 100% !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+html.yt-cm-wfs #below {
+    flex: 1 1 500px !important;
+    max-width: min(100%, 1280px) !important;
+    min-width: 0 !important;
+    padding: 16px 24px !important;
+    box-sizing: border-box !important;
+    display: block !important;
+    overflow-x: hidden !important;
+}
+
+html.yt-cm-wfs #secondary {
+    flex: 0 1 400px !important;
+    max-width: min(100%, 420px) !important;
+    min-width: 0 !important;
+    padding: 16px 24px !important;
+    box-sizing: border-box !important;
+    display: block !important;
+    overflow-x: hidden !important;
+}
+
+html.yt-cm-wfs ytd-watch-metadata,
+html.yt-cm-wfs ytd-comments,
+html.yt-cm-wfs ytd-live-chat-frame {
+    display: block !important;
+}
+
+
